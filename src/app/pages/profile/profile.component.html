@@ -1,0 +1,246 @@
+<div class="profile-page">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <div>
+                <h1 class="page-title">Mi Perfil</h1>
+                <p class="page-subtitle">Administra tu información personal y configuración</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="text-center p-5" *ngIf="loading && !user">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+    </div>
+
+    <!-- Contenido del perfil -->
+    <div class="profile-content" *ngIf="!loading || user">
+        <div class="row">
+            <!-- Card de información personal -->
+            <div class="col-lg-5 mb-4">
+                <div class="profile-card">
+                    <div class="profile-avatar">
+                        <div class="avatar-circle">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                        <h3 class="mt-3 mb-1">{{ user?.first_name }} {{ user?.last_name }}</h3>
+                        <span [class]="getRoleBadgeClass()">
+                            {{ getRoleLabel() }}
+                        </span>
+                    </div>
+
+                    <div class="profile-info">
+                        <div class="info-item">
+                            <i class="bi bi-envelope"></i>
+                            <div>
+                                <small>Email</small>
+                                <p>{{ user?.email || '-' }}</p>
+                            </div>
+                        </div>
+
+
+                        <div class="info-item">
+                            <i class="bi bi-person-badge"></i>
+                            <div>
+                                <small>Usuario</small>
+                                <p>{{ user?.username || '-' }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item" *ngIf="user?.branch_name">
+                            <i class="bi bi-shop"></i>
+                            <div>
+                                <small>Sucursal</small>
+                                <p>{{ user?.branch_name }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item">
+                            <i class="bi bi-calendar"></i>
+                            <div>
+                                <small>Miembro desde</small>
+                                <p>{{ formatDate(user?.created_at) }}</p>
+                            </div>
+                        </div>
+
+                        <div class="info-item" *ngIf="user?.last_login">
+                            <i class="bi bi-clock-history"></i>
+                            <div>
+                                <small>Último acceso</small>
+                                <p>{{ formatDate(user?.last_login) }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="profile-actions">
+                        <button class="btn btn-primary w-100 mb-2" (click)="openEditModal()">
+                            <i class="bi bi-pencil"></i> Editar Perfil
+                        </button>
+                        <button class="btn btn-outline-primary w-100" (click)="openPasswordModal()">
+                            <i class="bi bi-shield-lock"></i> Cambiar Contraseña
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card de Seguridad -->
+            <div class="col-lg-7 mb-4">
+                <div class="security-card">
+                    <h5 class="card-title">
+                        <i class="bi bi-shield-check me-2"></i>
+                        Seguridad
+                    </h5>
+
+                    <div class="security-items">
+                        <div class="security-item">
+                            <div class="security-info">
+                                <i class="bi bi-key-fill text-success"></i>
+                                <div>
+                                    <strong>Contraseña</strong>
+                                    <small>Mantén tu cuenta segura cambiando tu contraseña</small>
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" (click)="openPasswordModal()">
+                                <i class="bi bi-pencil"></i> Cambiar Contraseña
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Perfil -->
+<div class="modal" [class.show]="showEditModal" [style.display]="showEditModal ? 'block' : 'none'" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil me-2"></i>
+                    Editar Perfil
+                </h5>
+                <button type="button" class="btn-close" (click)="closeEditModal()"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre *</label>
+                            <input type="text" class="form-control" [(ngModel)]="editForm.first_name" name="first_name"
+                                required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Apellido *</label>
+                            <input type="text" class="form-control" [(ngModel)]="editForm.last_name" name="last_name"
+                                required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Email *</label>
+                        <input type="email" class="form-control" [(ngModel)]="editForm.email" name="email" required>
+                    </div>
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" (click)="closeEditModal()">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" (click)="saveProfile()"
+                    [disabled]="loading || !editForm.first_name || !editForm.email">
+                    <i class="bi bi-check-lg"></i> Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cambiar Contraseña -->
+<div class="modal" [class.show]="showPasswordModal" [style.display]="showPasswordModal ? 'block' : 'none'"
+    tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-shield-lock me-2"></i>
+                    Cambiar Contraseña
+                </h5>
+                <button type="button" class="btn-close" (click)="closePasswordModal()"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <!-- Contraseña actual -->
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña Actual *</label>
+                        <div class="input-group">
+                            <input [type]="showCurrentPassword ? 'text' : 'password'" class="form-control"
+                                [(ngModel)]="passwordForm.current_password" name="current_password"
+                                placeholder="Ingrese su contraseña actual" required>
+                            <button class="btn btn-outline-secondary" type="button"
+                                (click)="togglePasswordVisibility('current')">
+                                <i class="bi" [class.bi-eye]="!showCurrentPassword"
+                                    [class.bi-eye-slash]="showCurrentPassword"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Nueva contraseña -->
+                    <div class="mb-3">
+                        <label class="form-label">Nueva Contraseña *</label>
+                        <div class="input-group">
+                            <input [type]="showNewPassword ? 'text' : 'password'" class="form-control"
+                                [(ngModel)]="passwordForm.new_password" name="new_password"
+                                placeholder="Ingrese su nueva contraseña" required>
+                            <button class="btn btn-outline-secondary" type="button"
+                                (click)="togglePasswordVisibility('new')">
+                                <i class="bi" [class.bi-eye]="!showNewPassword"
+                                    [class.bi-eye-slash]="showNewPassword"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Confirmar contraseña -->
+                    <div class="mb-3">
+                        <label class="form-label">Confirmar Nueva Contraseña *</label>
+                        <div class="input-group">
+                            <input [type]="showConfirmPassword ? 'text' : 'password'" class="form-control"
+                                [(ngModel)]="passwordForm.confirm_password" name="confirm_password"
+                                placeholder="Confirme su nueva contraseña" required>
+                            <button class="btn btn-outline-secondary" type="button"
+                                (click)="togglePasswordVisibility('confirm')">
+                                <i class="bi" [class.bi-eye]="!showConfirmPassword"
+                                    [class.bi-eye-slash]="showConfirmPassword"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mensaje de error simple -->
+                    <div class="alert alert-danger" *ngIf="passwordErrors.length > 0">
+                        <ul class="mb-0">
+                            <li *ngFor="let error of passwordErrors">{{ error }}</li>
+                        </ul>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" (click)="closePasswordModal()">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" (click)="changePassword()"
+                    [disabled]="loading || !passwordForm.current_password || !passwordForm.new_password || !passwordForm.confirm_password">
+                    <i class="bi bi-shield-check"></i> Cambiar Contraseña
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backdrops -->
+<div class="modal-backdrop fade" [class.show]="showEditModal || showPasswordModal"
+    [style.display]="showEditModal || showPasswordModal ? 'block' : 'none'"></div>

@@ -1,0 +1,100 @@
+<div class="franchises-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">Gestión de Franquicias</h1>
+        <p class="page-subtitle">Administra las franquicias del sistema</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-section">
+    <div class="search-box">
+      <i class="bi bi-search"></i>
+      <input 
+        type="text" 
+        class="form-control" 
+        placeholder="Buscar por nombre, razón social o email..."
+        [(ngModel)]="searchTerm" 
+        (ngModelChange)="filterFranchises()">
+    </div>
+
+    <div class="filter-options">
+      <label class="form-check">
+        <input 
+          type="checkbox" 
+          class="form-check-input" 
+          [(ngModel)]="showInactive"
+          (change)="onShowInactiveChange()">
+        <span class="form-check-label">Mostrar inactivas</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="text-center p-4" *ngIf="loading">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Grid de franquicias -->
+  <div class="franchises-grid" *ngIf="!loading">
+    <div class="franchise-card" *ngFor="let franchise of filteredFranchises">
+      <div class="card-header">
+        <div class="franchise-info">
+          <div class="franchise-logo">
+            <img 
+              *ngIf="franchise.logo_url" 
+              [src]="franchise.logo_url" 
+              [alt]="franchise.name"
+              (error)="$event.target.src='assets/no-image.png'">
+            <i class="bi bi-diagram-3" *ngIf="!franchise.logo_url"></i>
+          </div>
+          <div class="franchise-details">
+            <h5 class="franchise-name">{{ franchise.name }}</h5>
+            <p class="franchise-legal-name">{{ franchise.legal_name }}</p>
+          </div>
+        </div>
+        <span 
+          class="badge"
+          [class.bg-success]="franchise.is_active"
+          [class.bg-secondary]="!franchise.is_active">
+          {{ franchise.is_active ? 'Activa' : 'Inactiva' }}
+        </span>
+      </div>
+
+      <div class="card-body">
+        <div class="info-row">
+          <i class="bi bi-card-text"></i>
+          <span><strong>CUIT/RUC:</strong> {{ franchise.tax_id || 'No especificado' }}</span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-envelope"></i>
+          <span>{{ franchise.email || 'Sin email' }}</span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-telephone"></i>
+          <span>{{ franchise.phone || 'Sin teléfono' }}</span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-calendar-plus"></i>
+          <span>Creada: {{ formatDate(franchise.created_at) }}</span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-clock-history"></i>
+          <span>Actualizada: {{ formatDate(franchise.updated_at) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!loading && filteredFranchises.length === 0">
+    <i class="bi bi-diagram-3"></i>
+    <h3>No se encontraron franquicias</h3>
+    <p>{{ searchTerm ? 'Intenta con otros términos de búsqueda' : 'No hay franquicias registradas' }}</p>
+  </div>
+</div>

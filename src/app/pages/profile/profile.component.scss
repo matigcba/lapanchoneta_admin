@@ -1,0 +1,317 @@
+.profile-page {
+    padding: 1.5rem;
+    background: #f5f7fa;
+    min-height: 100vh;
+}
+
+
+
+// Profile Content
+.profile-content {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+// Profile Card
+.profile-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    text-align: center;
+
+    .profile-avatar {
+        margin-bottom: 2rem;
+
+        .avatar-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+
+            i {
+                font-size: 4rem;
+                color: white;
+            }
+        }
+
+        h3 {
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .badge {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
+    }
+
+    .profile-info {
+        text-align: left;
+        margin-bottom: 2rem;
+
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e9ecef;
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            i {
+                font-size: 1.5rem;
+                color: #667eea;
+                margin-top: 0.25rem;
+            }
+
+            div {
+                flex: 1;
+
+                small {
+                    display: block;
+                    color: #6c757d;
+                    font-size: 0.75rem;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 0.25rem;
+                }
+
+                p {
+                    margin: 0;
+                    font-weight: 500;
+                    color: #2c3e50;
+                }
+            }
+        }
+    }
+
+    .profile-actions {
+        .btn {
+            font-weight: 500;
+        }
+    }
+}
+
+// Stats Grid
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+        }
+
+        .stat-content {
+            h4 {
+                margin: 0;
+                font-size: 1.75rem;
+                font-weight: 700;
+                color: #2c3e50;
+            }
+
+            p {
+                margin: 0;
+                color: #6c757d;
+                font-size: 0.875rem;
+            }
+        }
+    }
+}
+
+// Account Info Card
+.account-info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-bottom: 2rem;
+
+    .card-title {
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+
+        .info-block {
+            label {
+                display: block;
+                font-size: 0.75rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #6c757d;
+                margin-bottom: 0.5rem;
+            }
+
+            p {
+                margin: 0;
+                font-weight: 500;
+                color: #2c3e50;
+
+                code {
+                    background: #f8f9fa;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 4px;
+                    font-size: 0.875rem;
+                }
+            }
+        }
+    }
+}
+
+// Security Card
+.security-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+    .card-title {
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+    }
+
+    .security-items {
+        .security-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #e9ecef;
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            .security-info {
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+
+                i {
+                    font-size: 1.5rem;
+                }
+
+                strong {
+                    display: block;
+                    color: #2c3e50;
+                }
+
+                small {
+                    display: block;
+                    color: #6c757d;
+                }
+            }
+        }
+    }
+}
+
+// Modals
+.modal {
+    &.show {
+        display: block !important;
+    }
+
+    .modal-content {
+        border: none;
+        border-radius: 12px;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom: none;
+
+        .modal-title {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        .btn-close {
+            filter: brightness(0) invert(1);
+        }
+    }
+
+    .modal-body {
+        padding: 2rem;
+    }
+}
+
+// Password Strength
+.password-strength {
+    .progress {
+        background: #e9ecef;
+        border-radius: 3px;
+    }
+
+    small {
+        display: block;
+        margin-top: 0.5rem;
+        font-weight: 500;
+    }
+}
+
+// Responsive
+@media (max-width: 768px) {
+    .profile-card {
+        padding: 1.5rem;
+
+        .profile-avatar .avatar-circle {
+            width: 100px;
+            height: 100px;
+
+            i {
+                font-size: 3rem;
+            }
+        }
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .security-item {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 1rem;
+    }
+}

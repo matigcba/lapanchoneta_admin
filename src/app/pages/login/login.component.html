@@ -1,0 +1,103 @@
+<div class="login-container">
+  <div class="login-background">
+    <div class="animated-bg">
+      <div class="gradient-circle gradient-1"></div>
+      <div class="gradient-circle gradient-2"></div>
+      <div class="gradient-circle gradient-3"></div>
+    </div>
+  </div>
+  
+  <div class="login-card">
+    <div class="logo-section">
+      <div class="logo-circle">
+        <i class="bi bi-shop"></i>
+      </div>
+      <h2 class="brand-title">La Panchoneta</h2>
+      <p class="brand-subtitle">Panel de Administración</p>
+    </div>
+    
+    <form (ngSubmit)="onSubmit()" #loginForm="ngForm" class="login-form">
+      <div class="form-floating mb-3">
+        <input 
+          type="text" 
+          class="form-control" 
+          id="username"
+          name="username"
+          [(ngModel)]="credentials.username"
+          required
+          #usernameInput="ngModel"
+          [class.is-invalid]="usernameInput.invalid && usernameInput.touched"
+          placeholder="Usuario"
+        >
+        <label for="username">
+          <i class="bi bi-person"></i> Usuario o Email
+        </label>
+        <div class="invalid-feedback" *ngIf="usernameInput.invalid && usernameInput.touched">
+          El usuario es requerido
+        </div>
+      </div>
+      
+      <div class="form-floating mb-3">
+        <input 
+          type="password" 
+          class="form-control" 
+          id="password"
+          name="password"
+          [(ngModel)]="credentials.password"
+          required
+          minlength="6"
+          #passwordInput="ngModel"
+          [class.is-invalid]="passwordInput.invalid && passwordInput.touched"
+          placeholder="Contraseña"
+        >
+        <label for="password">
+          <i class="bi bi-lock"></i> Contraseña
+        </label>
+        <div class="invalid-feedback" *ngIf="passwordInput.invalid && passwordInput.touched">
+          La contraseña debe tener al menos 6 caracteres
+        </div>
+      </div>
+      
+      <div class="form-check mb-3">
+        <input 
+          class="form-check-input" 
+          type="checkbox" 
+          id="remember"
+          [(ngModel)]="rememberMe"
+          name="remember"
+        >
+        <label class="form-check-label" for="remember">
+          Recordarme
+        </label>
+      </div>
+      
+      <div class="alert alert-danger alert-modern" *ngIf="errorMessage">
+        <i class="bi bi-exclamation-triangle"></i>
+        {{ errorMessage }}
+      </div>
+      
+      <button 
+        type="submit" 
+        class="btn-login"
+        [disabled]="loginForm.invalid || loading"
+      >
+        <span *ngIf="!loading">
+          <i class="bi bi-box-arrow-in-right"></i>
+          Iniciar Sesión
+        </span>
+        <span *ngIf="loading" class="loading-state">
+          <span class="spinner-modern"></span>
+          Ingresando...
+        </span>
+      </button>
+      
+      <div class="login-footer">
+        <a href="#" class="forgot-link">¿Olvidaste tu contraseña?</a>
+      </div>
+    </form>
+  </div>
+  
+  <div class="login-info">
+    <p>© La Panchoneta - Todos los derechos reservados</p>
+  </div>
+</div>

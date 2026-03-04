@@ -1,0 +1,206 @@
+<div class="main-wrapper" *ngIf="isLoggedIn()">
+  <!-- Mobile overlay -->
+  <div class="mobile-overlay" [class.active]="mobileMenuOpen" (click)="closeMobileMenu()"></div>
+
+  <!-- Content wrapper sin sidebar -->
+  <div class="content-wrapper">
+    <!-- Top Navigation Bar -->
+    <nav class="top-navigation">
+      <div class="nav-container">
+        <!-- Logo y marca -->
+        <div class="brand-section">
+          <img src="../assets/LOGO_LAPANCHONETA.png" alt="La Panchoneta" class="nav-logo">
+
+          <!-- Mobile menu button -->
+          <button class="mobile-menu-btn" (click)="toggleMobileMenu()">
+            <i class="bi bi-list"></i>
+          </button>
+        </div>
+
+        <!-- Branch Selector con mejor diseño (Desktop) -->
+        <!-- Branch Selector con mejor diseño (Desktop) -->
+        <div class="branch-selector-container">
+          <i class="bi bi-building"></i>
+
+          <!-- Si es página global -->
+          <span class="branch-all-label" *ngIf="isGlobalPage()">
+            Todas las sucursales
+          </span>
+
+          <!-- Selector normal -->
+          <select *ngIf="!isGlobalPage()" [(ngModel)]="selectedBranchId" (change)="onBranchChange()"
+            class="branch-select">
+            <option *ngFor="let branch of availableBranches" [value]="branch.id">
+              {{ branch.name }} - {{ branch.city }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Main Navigation -->
+        <ul class="horizontal-nav" [class.mobile-open]="mobileMenuOpen">
+          <!-- Close button for mobile -->
+          <li class="mobile-close">
+            <span class="menu-title">Menú</span>
+            <button (click)="closeMobileMenu()">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </li>
+
+          <!-- Branch Selector para móvil -->
+          <li class="mobile-branch-selector">
+            <label>Sucursal</label>
+            <div class="branch-select-wrapper" [class.disabled]="isGlobalPage()">
+              <i class="bi bi-building"></i>
+              <span class="branch-all-text" *ngIf="isGlobalPage()">
+                Todas las sucursales
+              </span>
+              <select *ngIf="!isGlobalPage()" [(ngModel)]="selectedBranchId" (change)="onBranchChange()">
+                <option *ngFor="let branch of availableBranches" [value]="branch.id">
+                  {{ branch.name }} - {{ branch.city }}
+                </option>
+              </select>
+            </div>
+          </li>
+
+          <!-- Dashboard -->
+          <li class="nav-item-direct" *ngIf="canAccessModule('dashboard')">
+            <a routerLink="/dashboard" routerLinkActive="active" (click)="closeMobileMenu()">
+              <i class="bi bi-speedometer2"></i>
+              <span class="nav-text">Dashboard</span>
+            </a>
+          </li>
+
+          <!-- Grupo: Gestión -->
+          <li class="nav-group" [class.expanded]="expandedGroups['gestion']"
+            *ngIf="canAccessModule('inventory') || canAccessModule('stock') || canAccessModule('cash') || canAccessModule('orders')">
+            <span class="nav-group-title" (click)="toggleGroup('gestion')">Gestión</span>
+            <div class="nav-dropdown">
+              <a routerLink="/inventory" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('inventory')">
+                <i class="bi bi-box-seam"></i> Inventario
+              </a>
+              <a routerLink="/stock" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('stock')">
+                <i class="bi bi-clipboard-data"></i> Control de Stock
+              </a>
+              <a routerLink="/cash" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('cash')">
+                <i class="bi bi-cash-stack"></i> Caja
+              </a>
+              <a routerLink="/orders" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('orders')">
+                <i class="bi bi-receipt"></i> Pedidos
+                <span class="nav-badge" *ngIf="pendingOrders > 0">{{ pendingOrders }}</span>
+              </a>
+            </div>
+          </li>
+
+          <!-- Grupo: Administración -->
+          <li class="nav-group" [class.expanded]="expandedGroups['admin']"
+            *ngIf="canAccessModule('employees') || canAccessModule('branches') || canAccessModule('franchises')">
+            <span class="nav-group-title" (click)="toggleGroup('admin')">Administración</span>
+            <div class="nav-dropdown">
+              <a routerLink="/employees" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('employees')">
+                <i class="bi bi-people"></i> Empleados
+              </a>
+              <a routerLink="/branches" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('branches')">
+                <i class="bi bi-building"></i> Sucursales
+              </a>
+              <a routerLink="/franchises" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('franchises')">
+                <i class="bi bi-diagram-3"></i> Franquicias
+              </a>
+            </div>
+          </li>
+
+          <!-- Grupo: Reportes
+          <li class="nav-group" [class.expanded]="expandedGroups['reportes']"
+            *ngIf="canAccessModule('report_sales') || canAccessModule('report_orders')">
+            <span class="nav-group-title" (click)="toggleGroup('reportes')">Reportes</span>
+            <div class="nav-dropdown">
+              <a routerLink="/report-sales" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('report_sales')">
+                <i class="bi bi-cart-check"></i> Ventas
+              </a>
+              <a routerLink="/report-orders" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('report_orders')">
+                <i class="bi bi-file-earmark-text"></i> Pedidos
+              </a>
+            </div>
+          </li>
+ -->
+          <!-- Grupo: App Móvil -->
+          <li class="nav-group" [class.expanded]="expandedGroups['app']"
+            *ngIf="canAccessModule('coupons') || canAccessModule('points')">
+            <span class="nav-group-title" (click)="toggleGroup('app')">App Móvil</span>
+            <div class="nav-dropdown">
+              <a routerLink="/coupons" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('coupons')">
+                <i class="bi bi-tag"></i> Cupones
+              </a>
+              <a routerLink="/points" routerLinkActive="active" (click)="closeMobileMenu()"
+                *ngIf="canAccessModule('points')">
+                <i class="bi bi-coin"></i> Puntos
+              </a>
+            </div>
+          </li>
+        </ul>
+
+        <!-- Right side actions -->
+        <div class="nav-actions">
+          <!-- Notifications -->
+          <button class="action-btn" *ngIf="notificationCount > 0">
+            <i class="bi bi-bell"></i>
+            <span class="notification-dot"></span>
+          </button>
+
+          <!-- User menu -->
+          <div class="dropdown">
+            <button class="user-menu-btn" data-bs-toggle="dropdown">
+              <div class="user-avatar">
+                <i class="bi bi-person-circle"></i>
+              </div>
+              <span class="user-name">{{ currentUser?.name?.split(' ')[0] || currentUser?.username }}</span>
+              <i class="bi bi-chevron-down"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li class="dropdown-header">
+                <div class="user-info">
+                  <strong>{{ currentUser?.name || currentUser?.username }}</strong>
+                  <small>{{ currentUser?.email }}</small>
+                  <span class="user-role">{{ currentUser?.role }}</span>
+                </div>
+              </li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li>
+                <a class="dropdown-item" routerLink="/profile">
+                  <i class="bi bi-person"></i> Mi Perfil
+                </a>
+              </li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li>
+                <a class="dropdown-item text-danger" (click)="logout()">
+                  <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main content area -->
+    <main class="main-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
+
+<!-- Login cuando no está autenticado -->
+<router-outlet *ngIf="!isLoggedIn()"></router-outlet>

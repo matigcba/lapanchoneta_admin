@@ -1,0 +1,579 @@
+<div class="cash-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">
+          <i class="bi bi-safe me-2"></i>
+          Control de Caja
+        </h1>
+        <p class="page-subtitle">Gestiona todas las transacciones de la sucursal</p>
+      </div>
+      <div class="header-actions">
+        <!-- Dropdown de exportar -->
+        <div class="dropdown">
+          <button class="btn-modern btn-secondary-modern dropdown-toggle" 
+                  [disabled]="exporting || loading"
+                  data-bs-toggle="dropdown">
+            <i class="bi bi-download" [class.bi-hourglass-split]="exporting"></i>
+            <span>{{ exporting ? 'Exportando...' : 'Exportar' }}</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+              <a class="dropdown-item" (click)="exportData()">
+                <i class="bi bi-filetype-csv me-2"></i>
+                Exportar CSV
+              </a>
+            </li>
+            <li>
+              <a class="dropdown-item" (click)="exportExcel()">
+                <i class="bi bi-file-earmark-excel me-2"></i>
+                Exportar Excel
+              </a>
+            </li>
+          </ul>
+        </div>
+        <button class="btn-modern btn-primary-modern" (click)="refreshData()" [disabled]="loading">
+          <i class="bi bi-arrow-clockwise" [class.spinning]="loading"></i>
+          <span>Actualizar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+<!-- Resumen de Caja -->
+<div class="cash-summary-grid">
+  <div class="summary-card income">
+    <div class="summary-icon">
+      <i class="bi bi-arrow-down-circle"></i>
+    </div>
+    <div class="summary-content">
+      <span class="summary-value">${{ summary.total_in | number:'1.2-2' }}</span>
+      <span class="summary-label">Total Entradas</span>
+    </div>
+  </div>
+
+  <div class="summary-card expense">
+    <div class="summary-icon">
+      <i class="bi bi-arrow-up-circle"></i>
+    </div>
+    <div class="summary-content">
+      <span class="summary-value">${{ summary.total_out | number:'1.2-2' }}</span>
+      <span class="summary-label">Total Salidas</span>
+    </div>
+  </div>
+
+  <div class="summary-card balance" [class.positive]="summary.balance >= 0" [class.negative]="summary.balance < 0">
+    <div class="summary-icon">
+      <i class="bi bi-wallet2"></i>
+    </div>
+    <div class="summary-content">
+      <span class="summary-value">${{ summary.balance | number:'1.2-2' }}</span>
+      <span class="summary-label">Balance</span>
+    </div>
+  </div>
+
+  <div class="summary-card transactions">
+    <div class="summary-icon">
+      <i class="bi bi-receipt"></i>
+    </div>
+    <div class="summary-content">
+      <span class="summary-value">{{ summary.completed_count }}</span>
+      <span class="summary-label">Transacciones</span>
+      <span class="summary-detail" *ngIf="summary.voided_count > 0">
+        {{ summary.voided_count }} anuladas
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Desglose por método de pago -->
+<div class="payment-breakdown-section">
+  <!-- Ventas -->
+  <div class="breakdown-card sales">
+    <div class="breakdown-header">
+      <i class="bi bi-cart-check"></i>
+      <h4>Ventas por Método de Pago</h4>
+      <span class="breakdown-total">${{ getTotalSales() | number:'1.2-2' }}</span>
+    </div>
+    <div class="breakdown-items">
+
+      <!-- Sección Efectivo -->
+      <div class="breakdown-subheader">
+        <i class="bi bi-cash-stack"></i>
+        <span>Efectivo</span>
+        <span class="subheader-total">${{ summary.cash_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-item" *ngIf="summary.cash_total > 0">
+        <div class="item-icon cash">
+          <i class="bi bi-cash-stack"></i>
+        </div>
+        <span class="item-label">Efectivo</span>
+        <span class="item-value">${{ summary.cash_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-empty small" *ngIf="summary.cash_total === 0">
+        <span>Sin ventas en efectivo</span>
+      </div>
+
+      <!-- Separador -->
+      <div class="breakdown-divider"></div>
+
+      <!-- Sección Bancarias -->
+      <div class="breakdown-subheader">
+        <i class="bi bi-bank"></i>
+        <span>Bancarias</span>
+        <span class="subheader-total">${{ getBankTotal() | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-item" *ngIf="summary.card_total > 0">
+        <div class="item-icon card">
+          <i class="bi bi-credit-card"></i>
+        </div>
+        <span class="item-label">Tarjeta</span>
+        <span class="item-value">${{ summary.card_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-item" *ngIf="summary.transfer_total > 0">
+        <div class="item-icon transfer">
+          <i class="bi bi-bank"></i>
+        </div>
+        <span class="item-label">Transferencia</span>
+        <span class="item-value">${{ summary.transfer_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-item" *ngIf="summary.qr_total > 0">
+        <div class="item-icon qr">
+          <i class="bi bi-qr-code"></i>
+        </div>
+        <span class="item-label">QR / MercadoPago</span>
+        <span class="item-value">${{ summary.qr_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-item" *ngIf="summary.other_total > 0">
+        <div class="item-icon other">
+          <i class="bi bi-wallet2"></i>
+        </div>
+        <span class="item-label">Otros</span>
+        <span class="item-value">${{ summary.other_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-empty small" *ngIf="getBankTotal() === 0">
+        <span>Sin ventas bancarias</span>
+      </div>
+
+      <!-- Total General -->
+      <div class="breakdown-total-row">
+        <span class="total-label">TOTAL VENTAS</span>
+        <span class="total-value">${{ getTotalSales() | number:'1.2-2' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Movimientos de caja -->
+  <div class="breakdown-card movements">
+    <div class="breakdown-header">
+      <i class="bi bi-arrow-left-right"></i>
+      <h4>Movimientos de Caja</h4>
+    </div>
+    <div class="breakdown-items">
+      <div class="breakdown-item" *ngIf="summary.deposits_total > 0">
+        <div class="item-icon deposit">
+          <i class="bi bi-box-arrow-in-down"></i>
+        </div>
+        <span class="item-label">Depósitos</span>
+        <span class="item-value positive">+${{ summary.deposits_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-item" *ngIf="summary.withdrawals_total > 0">
+        <div class="item-icon withdrawal">
+          <i class="bi bi-box-arrow-up"></i>
+        </div>
+        <span class="item-label">Retiros</span>
+        <span class="item-value negative">-${{ summary.withdrawals_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-item" *ngIf="summary.expenses_total > 0">
+        <div class="item-icon expense">
+          <i class="bi bi-receipt"></i>
+        </div>
+        <span class="item-label">Gastos</span>
+        <span class="item-value negative">-${{ summary.expenses_total | number:'1.2-2' }}</span>
+      </div>
+      <div class="breakdown-empty" *ngIf="!summary.deposits_total && !summary.withdrawals_total && !summary.expenses_total">
+        <i class="bi bi-check-circle"></i>
+        <span>Sin movimientos manuales</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Filtros -->
+  <div class="filters-section">
+    <div class="filters-row">
+      <!-- Filtro de fecha rápido -->
+      <div class="filter-group date-filter">
+        <label>Período</label>
+        <div class="date-buttons">
+          <button class="date-btn" [class.active]="filters.date_filter === 'today'" 
+                  (click)="setDateFilter('today')">Hoy</button>
+          <button class="date-btn" [class.active]="filters.date_filter === 'yesterday'" 
+                  (click)="setDateFilter('yesterday')">Ayer</button>
+          <button class="date-btn" [class.active]="filters.date_filter === 'week'" 
+                  (click)="setDateFilter('week')">Semana</button>
+          <button class="date-btn" [class.active]="filters.date_filter === 'month'" 
+                  (click)="setDateFilter('month')">Mes</button>
+          <button class="date-btn" [class.active]="filters.date_filter === 'custom'" 
+                  (click)="showCustomDateFilter()">
+            <i class="bi bi-calendar3"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Rango de fechas personalizado -->
+      <div class="filter-group date-range" *ngIf="filters.date_filter === 'custom'">
+        <div class="date-input-group">
+          <label>Desde</label>
+          <input type="date" class="form-input-modern" [(ngModel)]="filters.date_from" 
+                 (change)="applyFilters()">
+        </div>
+        <div class="date-input-group">
+          <label>Hasta</label>
+          <input type="date" class="form-input-modern" [(ngModel)]="filters.date_to" 
+                 (change)="applyFilters()">
+        </div>
+      </div>
+    </div>
+
+    <div class="filters-row">
+      <!-- Tipo de transacción -->
+      <div class="filter-group">
+        <label>Tipo</label>
+        <select class="form-input-modern" [(ngModel)]="filters.type" (change)="applyFilters()">
+          <option value="">Todos los tipos</option>
+          <option *ngFor="let type of transactionTypes" [value]="type.id">
+            {{ type.name }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Filtro por Caja -->
+<div class="filter-group">
+  <label>Caja</label>
+  <select class="form-input-modern" [(ngModel)]="filters.session_status" (change)="applyFilters()">
+    <option value="">Todas las cajas</option>
+    <option value="open">🟢 Cajas abiertas</option>
+    <option value="closed">🔴 Cajas cerradas</option>
+  </select>
+</div>
+
+      <!-- Método de pago -->
+      <div class="filter-group">
+        <label>Método</label>
+        <select class="form-input-modern" [(ngModel)]="filters.payment_method" (change)="applyFilters()">
+          <option value="">Todos</option>
+          <option value="cash">💵 Efectivo</option>
+          <option value="card">💳 Tarjeta</option>
+          <option value="transfer">🏦 Transferencia</option>
+          <option value="qr">📱 QR</option>
+        </select>
+      </div>
+
+      <!-- Movimiento -->
+      <div class="filter-group">
+        <label>Movimiento</label>
+        <select class="form-input-modern" [(ngModel)]="filters.movement_type" (change)="applyFilters()">
+          <option value="">Todos</option>
+          <option value="in">⬇️ Entradas</option>
+          <option value="out">⬆️ Salidas</option>
+        </select>
+      </div>
+
+      <!-- Estado -->
+      <div class="filter-group">
+        <label>Estado</label>
+        <select class="form-input-modern" [(ngModel)]="filters.status" (change)="applyFilters()">
+          <option value="">Todos</option>
+          <option value="completed">✅ Completadas</option>
+          <option value="voided">❌ Anuladas</option>
+        </select>
+      </div>
+
+      <!-- Búsqueda -->
+      <div class="filter-group search-group">
+        <label>Buscar</label>
+        <div class="search-input-wrapper">
+          <i class="bi bi-search"></i>
+          <input type="text" class="form-input-modern" placeholder="ID, descripción, factura..." 
+                 [(ngModel)]="filters.search" (ngModelChange)="onSearchChange()">
+          <button class="clear-btn" *ngIf="filters.search" (click)="filters.search = ''; applyFilters()">
+            <i class="bi bi-x"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtros activos y resultados -->
+    <div class="filters-info-row">
+      <div class="active-filters" *ngIf="hasActiveFilters()">
+        <span class="filters-label">Filtros:</span>
+        <div class="filter-tags">
+          <span class="filter-tag" *ngIf="filters.date_filter && filters.date_filter !== 'today'">
+            {{ getDateFilterLabel() }}
+            <button (click)="clearDateFilter()"><i class="bi bi-x"></i></button>
+          </span>
+          <span class="filter-tag" *ngIf="filters.type">
+            {{ getTypeName(filters.type) }}
+            <button (click)="filters.type = ''; applyFilters()"><i class="bi bi-x"></i></button>
+          </span>
+          <span class="filter-tag" *ngIf="filters.payment_method">
+            {{ getPaymentMethodName(filters.payment_method) }}
+            <button (click)="filters.payment_method = ''; applyFilters()"><i class="bi bi-x"></i></button>
+          </span>
+          <span class="filter-tag" *ngIf="filters.movement_type">
+            {{ filters.movement_type === 'in' ? 'Entradas' : 'Salidas' }}
+            <button (click)="filters.movement_type = ''; applyFilters()"><i class="bi bi-x"></i></button>
+          </span>
+          <button class="clear-all-btn" (click)="clearAllFilters()">Limpiar</button>
+        </div>
+      </div>
+      
+      <div class="results-info" *ngIf="!loading">
+        <span>Mostrando <strong>{{ getShowingFrom() }}-{{ getShowingTo() }}</strong> de <strong>{{ totalItems }}</strong></span>
+        <select class="page-size-select" [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }} por página</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla de transacciones -->
+  <div class="transactions-section">
+    <!-- Loading -->
+    <div class="loading-overlay" *ngIf="loading">
+      <div class="spinner"></div>
+      <span>Cargando transacciones...</span>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-container" *ngIf="!loading">
+      <table class="modern-table">
+        <thead>
+          <tr>
+            <th class="th-id">ID</th>
+            <th class="th-date">Fecha/Hora</th>
+            <th class="th-type">Tipo</th>
+            <th class="th-description">Descripción</th>
+            <th class="th-payment">Método</th>
+            <th class="th-amount">Monto</th>
+            <th class="th-user">Usuario</th>
+            <th class="th-status">Estado</th>
+            <th class="th-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let transaction of transactions" 
+              [class.voided]="transaction.status === 'voided'"
+              class="table-row">
+            <td>
+              <span class="id-badge">#{{ transaction.id }}</span>
+            </td>
+            <td>
+              <div class="date-cell">
+                <span class="date">{{ transaction.created_at | date:'dd/MM/yyyy' }}</span>
+                <span class="time">{{ transaction.created_at | date:'HH:mm' }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="type-badge" [style.--type-color]="getTypeColor(transaction.transaction_type)">
+                <i class="bi" [ngClass]="getTypeIcon(transaction.transaction_type)"></i>
+                <span>{{ getTypeName(transaction.transaction_type) }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="description-cell">
+                <span class="description">{{ transaction.description || '-' }}</span>
+                <span class="reference" *ngIf="transaction.invoice_number">
+                  Fact: {{ transaction.invoice_number }}
+                </span>
+              </div>
+            </td>
+            <td>
+              <span class="payment-badge" [class]="transaction.payment_method">
+                <i class="bi" [ngClass]="getPaymentIcon(transaction.payment_method)"></i>
+                {{ getPaymentMethodName(transaction.payment_method) }}
+              </span>
+            </td>
+            <td>
+              <div class="amount-cell" [class.income]="transaction.movement_type === 'in'" 
+                   [class.expense]="transaction.movement_type === 'out'">
+                <span class="movement-indicator">
+                  {{ transaction.movement_type === 'in' ? '+' : '-' }}
+                </span>
+                <span class="amount">${{ transaction.amount | number:'1.2-2' }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="user-cell">
+                <i class="bi bi-person-circle"></i>
+                <span>{{ transaction.admin_name || transaction.admin_username || '-' }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="status-badge" [class]="transaction.status">
+                {{ getStatusName(transaction.status) }}
+              </span>
+            </td>
+            <td>
+              <div class="action-buttons">
+                <button class="btn-action view" (click)="viewTransaction(transaction); $event.stopPropagation()" title="Ver detalle">
+                  <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn-action print" (click)="printTransaction(transaction); $event.stopPropagation()" title="Imprimir">
+                  <i class="bi bi-printer"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty state -->
+      <div class="empty-state" *ngIf="transactions.length === 0">
+        <i class="bi bi-inbox"></i>
+        <h3>No hay transacciones</h3>
+        <p>No se encontraron transacciones con los filtros seleccionados</p>
+        <button class="btn-modern btn-secondary-modern" (click)="clearAllFilters()">
+          Limpiar filtros
+        </button>
+      </div>
+    </div>
+
+    <!-- Paginación -->
+    <div class="pagination-container" *ngIf="totalPages > 1 && !loading">
+      <div class="pagination-info">
+        Página {{ currentPage }} de {{ totalPages }}
+      </div>
+      
+      <div class="pagination-controls">
+        <button class="page-btn" (click)="goToPage(1)" [disabled]="currentPage === 1" title="Primera">
+          <i class="bi bi-chevron-double-left"></i>
+        </button>
+        <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1" title="Anterior">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        
+        <div class="page-numbers">
+          <button 
+            *ngFor="let page of getVisiblePages()" 
+            class="page-num" 
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)">
+            {{ page }}
+          </button>
+        </div>
+        
+        <button class="page-btn" (click)="nextPage()" [disabled]="currentPage === totalPages" title="Siguiente">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+        <button class="page-btn" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages" title="Última">
+          <i class="bi bi-chevron-double-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de detalle -->
+  <div class="modal-overlay" [class.show]="showDetailModal" (click)="closeDetailModal()">
+    <div class="modal-modern" (click)="$event.stopPropagation()">
+      <div class="modal-header-modern">
+        <h2 class="modal-title-modern">
+          <i class="bi bi-receipt me-2"></i>
+          Transacción #{{ selectedTransaction?.id }}
+        </h2>
+        <button class="modal-close" (click)="closeDetailModal()">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="modal-body-modern" *ngIf="selectedTransaction">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Tipo</label>
+            <div class="type-badge large" [style.--type-color]="getTypeColor(selectedTransaction.transaction_type)">
+              <i class="bi" [ngClass]="getTypeIcon(selectedTransaction.transaction_type)"></i>
+              {{ getTypeName(selectedTransaction.transaction_type) }}
+            </div>
+          </div>
+
+          <div class="detail-item">
+            <label>Monto</label>
+            <div class="amount-display" [class.income]="selectedTransaction.movement_type === 'in'" 
+                 [class.expense]="selectedTransaction.movement_type === 'out'">
+              {{ selectedTransaction.movement_type === 'in' ? '+' : '-' }}${{ selectedTransaction.amount | number:'1.2-2' }}
+            </div>
+          </div>
+
+          <div class="detail-item">
+            <label>Fecha y Hora</label>
+            <span>{{ selectedTransaction.created_at | date:'dd/MM/yyyy HH:mm:ss' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <label>Método de Pago</label>
+            <span class="payment-badge" [class]="selectedTransaction.payment_method">
+              <i class="bi" [ngClass]="getPaymentIcon(selectedTransaction.payment_method)"></i>
+              {{ getPaymentMethodName(selectedTransaction.payment_method) }}
+            </span>
+          </div>
+
+          <div class="detail-item">
+            <label>Usuario</label>
+            <span>{{ selectedTransaction.admin_name || selectedTransaction.admin_username || '-' }}</span>
+          </div>
+
+          <div class="detail-item">
+            <label>Estado</label>
+            <span class="status-badge" [class]="selectedTransaction.status">
+              {{ getStatusName(selectedTransaction.status) }}
+            </span>
+          </div>
+
+          <div class="detail-item full-width" *ngIf="selectedTransaction.description">
+            <label>Descripción</label>
+            <span>{{ selectedTransaction.description }}</span>
+          </div>
+
+          <div class="detail-item full-width" *ngIf="selectedTransaction.invoice_number">
+            <label>Número de Factura</label>
+            <span>{{ selectedTransaction.invoice_number }}</span>
+          </div>
+
+          <div class="detail-item full-width" *ngIf="selectedTransaction.notes">
+            <label>Notas</label>
+            <span>{{ selectedTransaction.notes }}</span>
+          </div>
+
+          <!-- Info de orden relacionada -->
+          <div class="detail-item full-width" *ngIf="selectedTransaction.order_id">
+            <label>Orden Relacionada</label>
+            <span>#{{ selectedTransaction.order_number || selectedTransaction.order_id }}</span>
+          </div>
+
+          <!-- Info de anulación -->
+          <div class="void-info" *ngIf="selectedTransaction.status === 'voided'">
+            <h4><i class="bi bi-exclamation-triangle me-2"></i>Transacción Anulada</h4>
+            <div class="void-details">
+              <p *ngIf="selectedTransaction.voided_by_name"><strong>Anulada por:</strong> {{ selectedTransaction.voided_by_name }}</p>
+              <p *ngIf="selectedTransaction.voided_at"><strong>Fecha:</strong> {{ selectedTransaction.voided_at | date:'dd/MM/yyyy HH:mm' }}</p>
+              <p *ngIf="selectedTransaction.void_reason"><strong>Motivo:</strong> {{ selectedTransaction.void_reason }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-modern">
+        <button class="btn-modern btn-secondary-modern" (click)="closeDetailModal()">
+          <i class="bi bi-x-lg me-1"></i>
+          Cerrar
+        </button>
+        <button class="btn-modern btn-primary-modern" (click)="printTransaction(selectedTransaction)">
+          <i class="bi bi-printer me-1"></i>
+          Imprimir
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

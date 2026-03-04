@@ -1,0 +1,583 @@
+<div class="points-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">Programa de Puntos</h1>
+        <p class="page-subtitle">Gestiona el sistema de recompensas para tus clientes</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <div class="tabs">
+      <button class="tab" [class.active]="activeTab === 'dashboard'" (click)="setTab('dashboard')">
+        <i class="bi bi-graph-up"></i> Dashboard
+      </button>
+      <button class="tab" [class.active]="activeTab === 'config'" (click)="setTab('config')">
+        <i class="bi bi-gear"></i> Configuración
+      </button>
+      <button class="tab" [class.active]="activeTab === 'products'" (click)="setTab('products')">
+        <i class="bi bi-gift"></i> Productos Canjeables
+      </button>
+      <button class="tab" [class.active]="activeTab === 'users'" (click)="setTab('users')">
+        <i class="bi bi-people"></i> Usuarios
+      </button>
+      <button class="tab" [class.active]="activeTab === 'transactions'" (click)="setTab('transactions')">
+        <i class="bi bi-list-ul"></i> Historial
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="text-center p-5" *ngIf="loading">
+    <div class="spinner-border text-primary"></div>
+    <p class="mt-2">Cargando...</p>
+  </div>
+
+  <!-- ==================== TAB: DASHBOARD ==================== -->
+  <div class="tab-content" *ngIf="activeTab === 'dashboard' && !loading && stats">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon purple">
+          <i class="bi bi-people-fill"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ formatNumber(stats.users_with_points) }}</span>
+          <span class="stat-label">Usuarios con Puntos</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon gold">
+          <i class="bi bi-coin"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ formatNumber(stats.total_points_circulation) }}</span>
+          <span class="stat-label">Puntos en Circulación</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon green">
+          <i class="bi bi-plus-circle"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ formatNumber(stats.month_points_earned) }}</span>
+          <span class="stat-label">Otorgados este Mes</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon blue">
+          <i class="bi bi-gift"></i>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ formatNumber(stats.month_redemptions_count) }}</span>
+          <span class="stat-label">Canjes este Mes</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Usuarios -->
+    <div class="section-card mt-4" *ngIf="stats.top_users?.length > 0">
+      <h3><i class="bi bi-trophy me-2"></i>Top Usuarios con más Puntos</h3>
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Usuario</th>
+              <th>Email</th>
+              <th class="text-end">Puntos Actuales</th>
+              <th class="text-end">Total Ganados</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of stats.top_users; let i = index">
+              <td>
+                <span class="rank-badge" [class.gold]="i === 0" [class.silver]="i === 1" [class.bronze]="i === 2">
+                  {{ i + 1 }}
+                </span>
+              </td>
+              <td><strong>{{ user.full_name }}</strong></td>
+              <td>{{ user.email }}</td>
+              <td class="text-end"><strong>{{ formatNumber(user.total_points) }}</strong></td>
+              <td class="text-end text-muted">{{ formatNumber(user.total_earned) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: CONFIGURACIÓN ==================== -->
+  <div class="tab-content" *ngIf="activeTab === 'config' && !loading && config">
+    <div class="config-grid">
+      <!-- Acumulación de puntos -->
+      <div class="config-card">
+        <h4><i class="bi bi-plus-circle me-2"></i>Acumulación de Puntos</h4>
+        <p class="text-muted">Define cuántos puntos ganan los usuarios por sus compras</p>
+        
+        <div class="config-row">
+          <label>Puntos a otorgar:</label>
+          <input type="number" class="form-control" [(ngModel)]="config.points_per_amount" min="1">
+        </div>
+        
+        <div class="config-row">
+          <label>Por cada $ gastado:</label>
+          <div class="input-group">
+            <span class="input-group-text">$</span>
+            <input type="number" class="form-control" [(ngModel)]="config.amount_for_points" min="1">
+          </div>
+        </div>
+
+        <div class="config-example">
+          <i class="bi bi-info-circle"></i>
+          Ejemplo: {{ config.points_per_amount }} punto(s) por cada ${{ config.amount_for_points }} gastados
+        </div>
+      </div>
+
+      <!-- Canje por dinero -->
+      <div class="config-card">
+        <h4><i class="bi bi-cash-coin me-2"></i>Canje por Descuento</h4>
+        <p class="text-muted">Permite canjear puntos por descuento en dinero</p>
+
+        <div class="form-check mb-3">
+          <input type="checkbox" class="form-check-input" [(ngModel)]="config.points_to_money_enabled" id="enableMoney">
+          <label class="form-check-label" for="enableMoney">Habilitar canje por dinero</label>
+        </div>
+
+        <div *ngIf="config.points_to_money_enabled">
+          <div class="config-row">
+            <label>Puntos necesarios:</label>
+            <input type="number" class="form-control" [(ngModel)]="config.points_for_discount" min="1">
+          </div>
+          
+          <div class="config-row">
+            <label>Equivalen a descuento de:</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" class="form-control" [(ngModel)]="config.discount_amount" min="1">
+            </div>
+          </div>
+
+          <div class="config-example">
+            <i class="bi bi-info-circle"></i>
+            {{ config.points_for_discount }} puntos = ${{ config.discount_amount }} de descuento
+          </div>
+        </div>
+      </div>
+
+      <!-- Límites -->
+      <div class="config-card">
+        <h4><i class="bi bi-sliders me-2"></i>Límites</h4>
+        <p class="text-muted">Controla las restricciones del programa</p>
+
+        <div class="config-row">
+          <label>Mínimo de puntos para canjear:</label>
+          <input type="number" class="form-control" [(ngModel)]="config.min_points_to_redeem" min="1">
+        </div>
+
+        <div class="config-row">
+          <label>Máximo % descuento por compra:</label>
+          <div class="input-group">
+            <input type="number" class="form-control" [(ngModel)]="config.max_discount_percent" min="1" max="100">
+            <span class="input-group-text">%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vencimiento -->
+      <div class="config-card">
+        <h4><i class="bi bi-calendar-x me-2"></i>Vencimiento</h4>
+        <p class="text-muted">Define si los puntos tienen fecha de expiración</p>
+
+        <div class="config-row">
+          <label>Días para vencer:</label>
+          <input type="number" class="form-control" [(ngModel)]="config.points_expiration_days" 
+                 min="0" placeholder="Dejar vacío = no vencen">
+        </div>
+
+        <div class="config-example" *ngIf="config.points_expiration_days">
+          <i class="bi bi-info-circle"></i>
+          Los puntos vencen {{ config.points_expiration_days }} días después de ser otorgados
+        </div>
+        <div class="config-example" *ngIf="!config.points_expiration_days">
+          <i class="bi bi-infinity"></i>
+          Los puntos no vencen
+        </div>
+      </div>
+
+      <!-- Estado -->
+      <div class="config-card">
+        <h4><i class="bi bi-power me-2"></i>Estado del Programa</h4>
+        
+        <div class="form-check form-switch">
+          <input type="checkbox" class="form-check-input" [(ngModel)]="config.is_active" id="programActive">
+          <label class="form-check-label" for="programActive">
+            {{ config.is_active ? 'Programa Activo' : 'Programa Inactivo' }}
+          </label>
+        </div>
+        <small class="text-muted">Si está inactivo, no se otorgarán ni canjearán puntos</small>
+      </div>
+    </div>
+
+    <div class="text-end mt-4">
+      <button class="btn btn-primary btn-lg" (click)="saveConfig()" [disabled]="saving">
+        <span *ngIf="!saving"><i class="bi bi-check-lg me-2"></i>Guardar Configuración</span>
+        <span *ngIf="saving"><span class="spinner-border spinner-border-sm me-2"></span>Guardando...</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: PRODUCTOS CANJEABLES ==================== -->
+  <div class="tab-content" *ngIf="activeTab === 'products' && !loading">
+    <div class="section-header">
+      <h3>Productos Canjeables por Puntos</h3>
+      <button class="btn btn-primary" (click)="openProductModal()">
+        <i class="bi bi-plus-lg me-2"></i>Agregar Producto
+      </button>
+    </div>
+
+    <div class="products-grid" *ngIf="pointsProducts.length > 0">
+      <div class="product-card" *ngFor="let product of pointsProducts" [class.inactive]="!product.is_active">
+        <div class="product-image" *ngIf="product.product_image">
+          <img [src]="product.product_image" [alt]="product.product_name">
+        </div>
+        <div class="product-image placeholder" *ngIf="!product.product_image">
+          <i class="bi bi-image"></i>
+        </div>
+        
+        <div class="product-info">
+          <h4>{{ product.product_name }}</h4>
+          <p class="product-price">Precio: ${{ formatNumber(product.product_price) }}</p>
+          <div class="points-cost">
+            <i class="bi bi-coin"></i>
+            {{ formatNumber(product.points_cost) }} puntos
+          </div>
+        </div>
+
+        <div class="product-meta">
+          <span class="badge" [class.bg-success]="product.is_active" [class.bg-secondary]="!product.is_active">
+            {{ product.is_active ? 'Activo' : 'Inactivo' }}
+          </span>
+          <span class="meta-item" *ngIf="product.per_user_limit">
+            <i class="bi bi-person"></i> Máx {{ product.per_user_limit }}/usuario
+          </span>
+          <span class="meta-item" *ngIf="product.stock_limit">
+            <i class="bi bi-box"></i> Stock: {{ product.current_stock }}/{{ product.stock_limit }}
+          </span>
+        </div>
+
+        <div class="product-actions">
+          <button class="btn btn-sm btn-outline-primary" (click)="openProductModal(product)">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(product)">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="pointsProducts.length === 0">
+      <i class="bi bi-gift"></i>
+      <h4>No hay productos canjeables</h4>
+      <p>Agrega productos que los usuarios puedan obtener con sus puntos</p>
+      <button class="btn btn-primary" (click)="openProductModal()">
+        <i class="bi bi-plus-lg me-2"></i>Agregar Producto
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: USUARIOS ==================== -->
+  <div class="tab-content" *ngIf="activeTab === 'users' && !loading">
+    <div class="section-header">
+      <h3>Usuarios y sus Puntos</h3>
+      <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" class="form-control" placeholder="Buscar usuario..." 
+               [(ngModel)]="userSearchTerm" (keyup.enter)="searchUsers()">
+        <button class="btn btn-primary" (click)="searchUsers()">Buscar</button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Email</th>
+            <th>Teléfono</th>
+            <th class="text-end">Puntos Actuales</th>
+            <th class="text-end">Total Ganados</th>
+            <th class="text-end">Total Canjeados</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let user of users">
+            <td><strong>{{ user.full_name }}</strong></td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.phone || '-' }}</td>
+            <td class="text-end">
+              <span class="points-badge">{{ formatNumber(user.total_points) }}</span>
+            </td>
+            <td class="text-end text-success">+{{ formatNumber(user.total_earned) }}</td>
+            <td class="text-end text-danger">-{{ formatNumber(user.total_redeemed) }}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-primary" (click)="openUserModal(user)">
+                <i class="bi bi-pencil-square"></i> Ajustar
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <div class="pagination-container" *ngIf="usersPagination.pages > 1">
+      <button class="btn btn-sm btn-outline-secondary" 
+              [disabled]="usersPagination.page === 1"
+              (click)="changeUsersPage(usersPagination.page - 1)">
+        <i class="bi bi-chevron-left"></i>
+      </button>
+      <span class="pagination-info">
+        Página {{ usersPagination.page }} de {{ usersPagination.pages }}
+      </span>
+      <button class="btn btn-sm btn-outline-secondary"
+              [disabled]="usersPagination.page === usersPagination.pages"
+              (click)="changeUsersPage(usersPagination.page + 1)">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== TAB: TRANSACCIONES ==================== -->
+  <div class="tab-content" *ngIf="activeTab === 'transactions' && !loading">
+    <div class="section-header">
+      <h3>Historial de Transacciones</h3>
+      <div class="filter-box">
+        <select class="form-select" [(ngModel)]="transactionTypeFilter" (change)="filterTransactions()">
+          <option value="">Todos los tipos</option>
+          <option value="earn">Ganados</option>
+          <option value="redeem">Canjeados</option>
+          <option value="bonus">Bonificación</option>
+          <option value="adjust">Ajuste</option>
+          <option value="expire">Vencidos</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Usuario</th>
+            <th>Tipo</th>
+            <th class="text-end">Puntos</th>
+            <th class="text-end">Saldo</th>
+            <th>Descripción</th>
+            <th>Admin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let tx of transactions">
+            <td>{{ formatDate(tx.created_at) }}</td>
+            <td><strong>{{ tx.user_name }}</strong></td>
+            <td><span [class]="getTypeBadgeClass(tx.type)">{{ getTypeText(tx.type) }}</span></td>
+            <td class="text-end" [class.text-success]="tx.points > 0" [class.text-danger]="tx.points < 0">
+              {{ tx.points > 0 ? '+' : '' }}{{ formatNumber(tx.points) }}
+            </td>
+            <td class="text-end">{{ formatNumber(tx.balance_after) }}</td>
+            <td>{{ tx.description || '-' }}</td>
+            <td>{{ tx.admin_name || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Paginación -->
+    <div class="pagination-container" *ngIf="transactionsPagination.pages > 1">
+      <button class="btn btn-sm btn-outline-secondary" 
+              [disabled]="transactionsPagination.page === 1"
+              (click)="changeTransactionsPage(transactionsPagination.page - 1)">
+        <i class="bi bi-chevron-left"></i>
+      </button>
+      <span class="pagination-info">
+        Página {{ transactionsPagination.page }} de {{ transactionsPagination.pages }}
+      </span>
+      <button class="btn btn-sm btn-outline-secondary"
+              [disabled]="transactionsPagination.page === transactionsPagination.pages"
+              (click)="changeTransactionsPage(transactionsPagination.page + 1)">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: PRODUCTO CANJEABLE ==================== -->
+  <div class="modal" [class.show]="showProductModal" [style.display]="showProductModal ? 'block' : 'none'">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-gift me-2"></i>
+            {{ editingProduct ? 'Editar' : 'Agregar' }} Producto Canjeable
+          </h5>
+          <button type="button" class="btn-close" (click)="closeProductModal()"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Producto *</label>
+            <select class="form-select" [(ngModel)]="currentProduct.product_id" [disabled]="editingProduct">
+              <option [ngValue]="null">Seleccionar producto...</option>
+              <option *ngFor="let p of getAvailableProducts()" [ngValue]="p.id">
+                {{ p.name }} - ${{ formatNumber(p.price) }}
+              </option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Costo en Puntos *</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-coin"></i></span>
+              <input type="number" class="form-control" [(ngModel)]="currentProduct.points_cost" min="1">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Límite por Usuario</label>
+              <input type="number" class="form-control" [(ngModel)]="currentProduct.per_user_limit" 
+                     min="1" placeholder="Sin límite">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Stock Disponible</label>
+              <input type="number" class="form-control" [(ngModel)]="currentProduct.stock_limit" 
+                     min="1" placeholder="Ilimitado">
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Fecha Inicio</label>
+              <input type="datetime-local" class="form-control" [(ngModel)]="currentProduct.starts_at">
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Fecha Fin</label>
+              <input type="datetime-local" class="form-control" [(ngModel)]="currentProduct.expires_at">
+            </div>
+          </div>
+
+          <div class="form-check">
+            <input type="checkbox" class="form-check-input" [(ngModel)]="currentProduct.is_active" id="productActive">
+            <label class="form-check-label" for="productActive">Producto activo</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeProductModal()">Cancelar</button>
+          <button type="button" class="btn btn-primary" (click)="saveProduct()" [disabled]="saving">
+            <span *ngIf="!saving">{{ editingProduct ? 'Actualizar' : 'Crear' }}</span>
+            <span *ngIf="saving"><span class="spinner-border spinner-border-sm"></span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: AJUSTAR PUNTOS USUARIO ==================== -->
+  <div class="modal" [class.show]="showUserModal" [style.display]="showUserModal ? 'block' : 'none'">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-person-gear me-2"></i>
+            Puntos de {{ selectedUser?.full_name }}
+          </h5>
+          <button type="button" class="btn-close" (click)="closeUserModal()"></button>
+        </div>
+        <div class="modal-body" *ngIf="selectedUser">
+          <!-- Resumen -->
+          <div class="user-points-summary">
+            <div class="summary-item">
+              <span class="label">Puntos Actuales</span>
+              <span class="value">{{ formatNumber(selectedUser.total_points) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">Total Ganados</span>
+              <span class="value text-success">+{{ formatNumber(selectedUser.total_earned) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">Total Canjeados</span>
+              <span class="value text-danger">-{{ formatNumber(selectedUser.total_redeemed) }}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">Total Vencidos</span>
+              <span class="value text-muted">-{{ formatNumber(selectedUser.total_expired) }}</span>
+            </div>
+          </div>
+
+          <!-- Ajuste manual -->
+          <div class="adjust-section">
+            <h6>Ajuste Manual de Puntos</h6>
+            <div class="row">
+              <div class="col-md-4">
+                <label class="form-label">Puntos a agregar/quitar</label>
+                <input type="number" class="form-control" [(ngModel)]="adjustPoints" 
+                       placeholder="Ej: 100 o -50">
+                <small class="text-muted">Usar negativo para quitar</small>
+              </div>
+              <div class="col-md-8">
+                <label class="form-label">Motivo *</label>
+                <input type="text" class="form-control" [(ngModel)]="adjustReason" 
+                       placeholder="Ej: Compensación por error, Bonificación especial...">
+              </div>
+            </div>
+          </div>
+
+          <!-- Últimas transacciones -->
+          <div class="recent-transactions" *ngIf="selectedUser.transactions?.length > 0">
+            <h6>Últimas Transacciones</h6>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th class="text-end">Puntos</th>
+                    <th>Descripción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let tx of selectedUser.transactions">
+                    <td>{{ formatDate(tx.created_at) }}</td>
+                    <td><span [class]="getTypeBadgeClass(tx.type)">{{ getTypeText(tx.type) }}</span></td>
+                    <td class="text-end" [class.text-success]="tx.points > 0" [class.text-danger]="tx.points < 0">
+                      {{ tx.points > 0 ? '+' : '' }}{{ formatNumber(tx.points) }}
+                    </td>
+                    <td>{{ tx.description || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeUserModal()">Cerrar</button>
+          <button type="button" class="btn btn-primary" (click)="adjustUserPoints()" 
+                  [disabled]="saving || adjustPoints === 0 || !adjustReason.trim()">
+            <span *ngIf="!saving"><i class="bi bi-check-lg me-1"></i>Aplicar Ajuste</span>
+            <span *ngIf="saving"><span class="spinner-border spinner-border-sm"></span></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal backdrop -->
+  <div class="modal-backdrop fade" [class.show]="showProductModal || showUserModal"
+       [style.display]="showProductModal || showUserModal ? 'block' : 'none'"></div>
+</div>

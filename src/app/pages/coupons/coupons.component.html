@@ -1,0 +1,595 @@
+<div class="coupons-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">Gestión de Cupones</h1>
+        <p class="page-subtitle">Administra los cupones de descuento del sistema</p>
+      </div>
+      <button class="btn btn-primary" (click)="openModal()">
+        <i class="bi bi-plus-lg"></i>
+        Crear Cupón
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-row">
+    <div class="stat-card" (click)="setFilterStatus('all')" [class.active]="filterStatus === 'all'">
+      <div class="stat-icon total">
+        <i class="bi bi-ticket-perforated"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.total }}</span>
+        <span class="stat-label">Total</span>
+      </div>
+    </div>
+
+    <div class="stat-card" (click)="setFilterStatus('active')" [class.active]="filterStatus === 'active'">
+      <div class="stat-icon active">
+        <i class="bi bi-check-circle"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.active }}</span>
+        <span class="stat-label">Activos</span>
+      </div>
+    </div>
+
+    <div class="stat-card" (click)="setFilterStatus('scheduled')" [class.active]="filterStatus === 'scheduled'">
+      <div class="stat-icon scheduled">
+        <i class="bi bi-calendar-event"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.scheduled }}</span>
+        <span class="stat-label">Programados</span>
+      </div>
+    </div>
+
+    <div class="stat-card" (click)="setFilterStatus('expired')" [class.active]="filterStatus === 'expired'">
+      <div class="stat-icon expired">
+        <i class="bi bi-x-circle"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.expired }}</span>
+        <span class="stat-label">Expirados</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon uses">
+        <i class="bi bi-graph-up"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.totalUses }}</span>
+        <span class="stat-label">Usos Totales</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-section">
+    <div class="search-box">
+      <i class="bi bi-search"></i>
+      <input type="text" class="form-control" placeholder="Buscar por código o descripción..." [(ngModel)]="searchTerm"
+        (ngModelChange)="filterCoupons()">
+    </div>
+
+    <div class="filter-options">
+      <label class="form-check">
+        <input type="checkbox" class="form-check-input" [(ngModel)]="showInactive" (change)="onShowInactiveChange()">
+        <span class="form-check-label">Mostrar inactivos</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="text-center p-4" *ngIf="loading">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Lista de cupones -->
+  <div class="coupons-grid" *ngIf="!loading">
+    <div class="coupon-card" *ngFor="let coupon of filteredCoupons" [class.inactive]="!coupon.is_active"
+      [class.expired]="getCouponStatus(coupon) === 'expired'">
+
+      <!-- Header del cupón -->
+      <div class="coupon-header">
+        <div class="coupon-code-section">
+          <span class="coupon-code">{{ coupon.code }}</span>
+          <div class="badges-row">
+            <span [class]="getStatusBadgeClass(coupon)">
+              {{ getStatusText(coupon) }}
+            </span>
+            <span class="badge bg-purple" *ngIf="coupon.is_user_specific" title="Solo para usuarios específicos">
+              <i class="bi bi-person-check"></i>
+              {{ coupon.assigned_users_count || 0 }}
+            </span>
+          </div>
+        </div>
+        <div class="coupon-discount">
+          <span class="discount-value">{{ getDiscountDisplay(coupon) }}</span>
+          <span class="discount-type">{{ coupon.discount_type === 'percentage' ? 'descuento' : 'fijo' }}</span>
+        </div>
+      </div>
+
+      <!-- Body del cupón -->
+      <div class="coupon-body">
+        <p class="coupon-description" *ngIf="coupon.description">
+          {{ coupon.description }}
+        </p>
+
+        <div class="coupon-details">
+          <!-- Vigencia -->
+          <div class="detail-row">
+            <i class="bi bi-calendar3"></i>
+            <span *ngIf="coupon.starts_at || coupon.expires_at">
+              {{ formatDateDisplay(coupon.starts_at) }} - {{ formatDateDisplay(coupon.expires_at) }}
+            </span>
+            <span *ngIf="!coupon.starts_at && !coupon.expires_at" class="text-muted">
+              Sin fecha límite
+            </span>
+          </div>
+
+          <!-- Días restantes -->
+          <div class="detail-row" *ngIf="getDaysRemaining(coupon) !== null">
+            <i class="bi bi-hourglass-split"></i>
+            <span [class.text-danger]="getDaysRemaining(coupon)! <= 3">
+              {{ getDaysRemaining(coupon) }} días restantes
+            </span>
+          </div>
+
+          <!-- Usos -->
+          <div class="detail-row">
+            <i class="bi bi-people"></i>
+            <span>{{ getUsageDisplay(coupon) }} usos</span>
+          </div>
+
+          <!-- Usos por usuario -->
+          <div class="detail-row" *ngIf="coupon.max_uses_per_user">
+            <i class="bi bi-person-badge"></i>
+            <span>Máx {{ coupon.max_uses_per_user }} por usuario</span>
+          </div>
+
+          <!-- Monto mínimo -->
+          <div class="detail-row" *ngIf="coupon.min_purchase_amount">
+            <i class="bi bi-cash"></i>
+            <span>Mínimo ${{ coupon.min_purchase_amount | number:'1.0-0' }}</span>
+          </div>
+
+          <!-- Descuento máximo -->
+          <div class="detail-row" *ngIf="coupon.max_discount_amount && coupon.discount_type === 'percentage'">
+            <i class="bi bi-arrow-down-circle"></i>
+            <span>Máx descuento ${{ coupon.max_discount_amount | number:'1.0-0' }}</span>
+          </div>
+
+          <!-- Sucursales -->
+          <div class="detail-row" *ngIf="coupon.applicable_branches?.length">
+            <i class="bi bi-building"></i>
+            <span>{{ coupon.applicable_branches.length }} sucursal(es)</span>
+          </div>
+          <div class="detail-row" *ngIf="!coupon.applicable_branches">
+            <i class="bi bi-building"></i>
+            <span class="text-muted">Todas las sucursales</span>
+          </div>
+
+          <!-- Productos -->
+          <div class="detail-row" *ngIf="coupon.applicable_products?.length">
+            <i class="bi bi-box"></i>
+            <span>{{ coupon.applicable_products.length }} producto(s)</span>
+          </div>
+          <div class="detail-row" *ngIf="!coupon.applicable_products">
+            <i class="bi bi-box"></i>
+            <span class="text-muted">Todos los productos</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer con acciones -->
+      <div class="coupon-footer">
+        <button class="btn btn-sm btn-outline-info" (click)="openUsageModal(coupon)" title="Ver usos">
+          <i class="bi bi-eye"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-secondary" (click)="duplicateCoupon(coupon)" title="Duplicar">
+          <i class="bi bi-copy"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-primary" (click)="openModal(coupon)" title="Editar">
+          <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-warning" (click)="toggleStatus(coupon)"
+          [title]="coupon.is_active ? 'Desactivar' : 'Activar'">
+          <i class="bi" [ngClass]="coupon.is_active ? 'bi-toggle-on' : 'bi-toggle-off'"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger" (click)="deleteCoupon(coupon)" title="Eliminar"
+          [disabled]="coupon.current_uses > 0">
+          <i class="bi bi-trash"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!loading && filteredCoupons.length === 0">
+    <i class="bi bi-ticket-perforated"></i>
+    <h3>No se encontraron cupones</h3>
+    <p>{{ searchTerm ? 'Intenta con otros términos de búsqueda' : 'Crea el primer cupón de descuento' }}</p>
+    <button class="btn btn-primary mt-3" (click)="openModal()" *ngIf="!searchTerm">
+      <i class="bi bi-plus-lg me-2"></i>Crear Cupón
+    </button>
+  </div>
+
+  <!-- ==================== MODAL CREAR/EDITAR ==================== -->
+  <div class="modal" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-ticket-perforated me-2"></i>
+            {{ editingCoupon ? 'Editar Cupón' : 'Nuevo Cupón' }}
+          </h5>
+          <button type="button" class="btn-close" (click)="closeModal()"></button>
+        </div>
+
+        <div class="modal-body">
+          <form>
+            <!-- Código y Descuento -->
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Código del Cupón *</label>
+                <div class="input-group">
+                  <input type="text" class="form-control text-uppercase" [(ngModel)]="currentCoupon.code" name="code"
+                    placeholder="Ej: PROMO10" maxlength="20" required>
+                  <button class="btn btn-outline-secondary" type="button" (click)="generateCode()">
+                    <i class="bi bi-shuffle"></i>
+                  </button>
+                </div>
+                <small class="text-muted">Sin espacios ni caracteres especiales</small>
+              </div>
+
+              <div class="col-md-3 mb-3">
+                <label class="form-label">Tipo de Descuento *</label>
+                <select class="form-select" [(ngModel)]="currentCoupon.discount_type" name="discount_type">
+                  <option value="percentage">Porcentaje (%)</option>
+                  <option value="fixed">Monto Fijo ($)</option>
+                </select>
+              </div>
+
+              <div class="col-md-3 mb-3">
+                <label class="form-label">Valor *</label>
+                <div class="input-group">
+                  <span class="input-group-text">
+                    {{ currentCoupon.discount_type === 'percentage' ? '%' : '$' }}
+                  </span>
+                  <input type="number" class="form-control" [(ngModel)]="currentCoupon.discount_value"
+                    name="discount_value" [max]="currentCoupon.discount_type === 'percentage' ? 100 : 999999" min="0.01"
+                    step="0.01" required>
+                </div>
+              </div>
+            </div>
+
+            <!-- Descripción -->
+            <div class="mb-3">
+              <label class="form-label">Descripción</label>
+              <textarea class="form-control" [(ngModel)]="currentCoupon.description" name="description" rows="2"
+                placeholder="Descripción que verá el cliente..."></textarea>
+            </div>
+
+            <!-- Vigencia -->
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha de Inicio</label>
+                <input type="datetime-local" class="form-control" [(ngModel)]="currentCoupon.starts_at"
+                  name="starts_at">
+                <small class="text-muted">Dejar vacío para activar inmediatamente</small>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha de Expiración</label>
+                <input type="datetime-local" class="form-control" [(ngModel)]="currentCoupon.expires_at"
+                  name="expires_at">
+                <small class="text-muted">Dejar vacío para sin fecha límite</small>
+              </div>
+            </div>
+
+            <!-- Restricciones -->
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Monto Mínimo de Compra</label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input type="number" class="form-control" [(ngModel)]="currentCoupon.min_purchase_amount"
+                    name="min_purchase_amount" min="0" placeholder="Sin mínimo">
+                </div>
+              </div>
+
+              <div class="col-md-4 mb-3" *ngIf="currentCoupon.discount_type === 'percentage'">
+                <label class="form-label">Descuento Máximo</label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input type="number" class="form-control" [(ngModel)]="currentCoupon.max_discount_amount"
+                    name="max_discount_amount" min="0" placeholder="Sin límite">
+                </div>
+                <small class="text-muted">Tope máximo del descuento</small>
+              </div>
+
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Usos Totales</label>
+                <input type="number" class="form-control" [(ngModel)]="currentCoupon.max_uses" name="max_uses" min="1"
+                  placeholder="Ilimitado">
+                <small class="text-muted">Dejar vacío = ilimitado</small>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label">Usos por Usuario</label>
+                <input type="number" class="form-control" [(ngModel)]="currentCoupon.max_uses_per_user"
+                  name="max_uses_per_user" min="1" value="1">
+              </div>
+            </div>
+
+            <!-- Sucursales -->
+            <div class="mb-3">
+              <label class="form-label">Sucursales Aplicables</label>
+              <div class="selector-box">
+                <div class="selector-grid">
+                  <div class="selector-option" *ngFor="let branch of branches">
+                    <label class="form-check">
+                      <input type="checkbox" class="form-check-input" [checked]="selectedBranches.includes(branch.id)"
+                        (change)="toggleBranch(branch.id)">
+                      <span class="form-check-label">{{ branch.name }}</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="selector-actions">
+                  <button type="button" class="btn btn-link btn-sm" (click)="selectAllBranches()">
+                    Seleccionar todas
+                  </button>
+                  <span class="text-muted">|</span>
+                  <button type="button" class="btn btn-link btn-sm" (click)="clearBranches()">
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+              <small class="text-muted">
+                {{ selectedBranches.length === 0 ? 'Aplica en todas las sucursales' : selectedBranches.length + '
+                sucursal(es) seleccionada(s)' }}
+              </small>
+            </div>
+
+            <!-- Productos -->
+            <div class="mb-3">
+              <label class="form-label">Productos Aplicables</label>
+              <div class="selector-box">
+                <div class="selector-grid" style="max-height: 150px;">
+                  <div class="selector-option" *ngFor="let product of products">
+                    <label class="form-check">
+                      <input type="checkbox" class="form-check-input" [checked]="selectedProducts.includes(product.id)"
+                        (change)="toggleProduct(product.id)">
+                      <span class="form-check-label">{{ product.name }}</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="selector-actions">
+                  <button type="button" class="btn btn-link btn-sm" (click)="selectAllProducts()">
+                    Seleccionar todos
+                  </button>
+                  <span class="text-muted">|</span>
+                  <button type="button" class="btn btn-link btn-sm" (click)="clearProducts()">
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+              <small class="text-muted">
+                {{ selectedProducts.length === 0 ? 'Aplica en todos los productos' : selectedProducts.length + '
+                producto(s) seleccionado(s)' }}
+              </small>
+            </div>
+
+            <!-- Usuarios Específicos -->
+            <div class="mb-4">
+              <div class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" [(ngModel)]="currentCoupon.is_user_specific"
+                  name="is_user_specific" id="isUserSpecific">
+                <label class="form-check-label fw-bold" for="isUserSpecific">
+                  <i class="bi bi-person-check me-1"></i>
+                  Cupón para usuarios específicos
+                </label>
+              </div>
+              <small class="text-muted d-block mb-2">
+                Si está activo, solo los usuarios seleccionados podrán ver y usar este cupón en la app
+              </small>
+
+              <!-- Selector de usuarios -->
+              <div class="user-selector-box" *ngIf="currentCoupon.is_user_specific">
+
+                <!-- Buscador -->
+                <div class="user-search-container">
+                  <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" class="form-control"
+                      placeholder="Buscar por nombre, email o teléfono (mín. 3 caracteres)..."
+                      [(ngModel)]="userSearchTerm" name="userSearch" (input)="onUserSearch()"
+                      (focus)="showUserResults = true">
+                  </div>
+
+                  <!-- Resultados de búsqueda -->
+                  <div class="user-search-results" *ngIf="showUserResults && userSearchTerm.length >= 3">
+
+                    <!-- Loading -->
+                    <div class="text-center p-3" *ngIf="loadingUsers">
+                      <div class="spinner-border spinner-border-sm text-primary"></div>
+                      <span class="ms-2">Buscando...</span>
+                    </div>
+
+                    <!-- Lista de resultados -->
+                    <div *ngIf="!loadingUsers">
+                      <div class="user-result-item" *ngFor="let user of userSearchResults" (click)="addUser(user)"
+                        [class.disabled]="isUserSelected(user.id)">
+                        <div class="user-info">
+                          <span class="user-name">{{ user.full_name || 'Sin nombre' }}</span>
+                          <small class="user-email">{{ user.email }}</small>
+                          <small class="user-phone" *ngIf="user.phone">{{ user.phone }}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" *ngIf="!isUserSelected(user.id)">
+                          <i class="bi bi-plus"></i>
+                        </button>
+                        <span class="badge bg-success" *ngIf="isUserSelected(user.id)">
+                          <i class="bi bi-check"></i> Agregado
+                        </span>
+                      </div>
+
+                      <!-- Sin resultados -->
+                      <div class="text-center text-muted p-3" *ngIf="userSearchResults.length === 0">
+                        <i class="bi bi-search"></i>
+                        <p class="mb-0 small">No se encontraron usuarios con "{{ userSearchTerm }}"</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Mensaje mínimo caracteres -->
+                  <div class="search-hint" *ngIf="userSearchTerm.length > 0 && userSearchTerm.length < 3">
+                    <small class="text-muted">Escribe al menos 3 caracteres para buscar</small>
+                  </div>
+                </div>
+
+                <!-- Usuarios seleccionados (Chips) -->
+                <div class="selected-users-container" *ngIf="selectedUsersData.length > 0">
+                  <label class="form-label mb-2">
+                    <i class="bi bi-people-fill me-1"></i>
+                    Usuarios seleccionados ({{ selectedUsersData.length }}):
+                  </label>
+                  <div class="user-chips">
+                    <div class="user-chip" *ngFor="let user of selectedUsersData">
+                      <span class="chip-name">{{ user.full_name || user.email }}</span>
+                      <button class="chip-remove" (click)="removeUser(user.id)" title="Quitar">
+                        <i class="bi bi-x"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-link btn-sm text-danger mt-2" (click)="clearAllUsers()">
+                    <i class="bi bi-trash me-1"></i>Quitar todos
+                  </button>
+                </div>
+
+                <!-- Warning si no hay usuarios -->
+                <div class="alert alert-warning py-2 mt-3 mb-0" *ngIf="selectedUsersData.length === 0">
+                  <i class="bi bi-exclamation-triangle me-1"></i>
+                  Busca y selecciona al menos un usuario
+                </div>
+              </div>
+            </div>
+
+            <!-- Estado -->
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" [(ngModel)]="currentCoupon.is_active" name="is_active"
+                id="isActive">
+              <label class="form-check-label" for="isActive">
+                Cupón activo
+              </label>
+            </div>
+          </form>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" (click)="saveCoupon()" [disabled]="saving">
+            <span *ngIf="!saving">
+              <i class="bi bi-check-lg me-1"></i>
+              {{ editingCoupon ? 'Actualizar' : 'Crear Cupón' }}
+            </span>
+            <span *ngIf="saving">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Guardando...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL HISTORIAL DE USO ==================== -->
+  <div class="modal" [class.show]="showUsageModal" [style.display]="showUsageModal ? 'block' : 'none'" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-clock-history me-2"></i>
+            Historial de Uso - {{ selectedCouponForUsage?.code }}
+          </h5>
+          <button type="button" class="btn-close" (click)="closeUsageModal()"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Info del cupón -->
+          <div class="coupon-summary mb-4" *ngIf="selectedCouponForUsage">
+            <div class="row">
+              <div class="col-md-4">
+                <strong>Descuento:</strong> {{ getDiscountDisplay(selectedCouponForUsage) }}
+              </div>
+              <div class="col-md-4">
+                <strong>Usos:</strong> {{ getUsageDisplay(selectedCouponForUsage) }}
+              </div>
+              <div class="col-md-4">
+                <strong>Estado:</strong>
+                <span [class]="getStatusBadgeClass(selectedCouponForUsage)">
+                  {{ getStatusText(selectedCouponForUsage) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Loading -->
+          <div class="text-center p-4" *ngIf="loadingUsage">
+            <div class="spinner-border text-primary" role="status"></div>
+          </div>
+
+          <!-- Tabla de usos -->
+          <div class="table-responsive" *ngIf="!loadingUsage && couponUsage.length > 0">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Usuario</th>
+                  <th>Orden</th>
+                  <th>Descuento</th>
+                  <th>Sucursal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let usage of couponUsage">
+                  <td>{{ formatDateDisplay(usage.used_at) }}</td>
+                  <td>{{ usage.user_name || usage.user_email || 'Usuario #' + usage.user_id }}</td>
+                  <td>
+                    <span class="badge bg-light text-dark">#{{ usage.order_id }}</span>
+                  </td>
+                  <td>${{ usage.discount_amount | number:'1.2-2' }}</td>
+                  <td>{{ usage.branch_name || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Sin usos -->
+          <div class="text-center p-4 text-muted" *ngIf="!loadingUsage && couponUsage.length === 0">
+            <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+            <p class="mt-2 mb-0">Este cupón aún no ha sido utilizado</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeUsageModal()">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal backdrop -->
+  <div class="modal-backdrop fade" [class.show]="showModal || showUsageModal"
+    [style.display]="showModal || showUsageModal ? 'block' : 'none'"></div>
+</div>

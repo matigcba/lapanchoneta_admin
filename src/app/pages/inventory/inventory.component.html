@@ -1,0 +1,939 @@
+<div class="inventory-container">
+  <!-- Header moderno con gradiente -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">Gestión de inventario</h1>
+        <p class="page-subtitle">Administra todos los productos, categorías, etc</p>
+      </div>
+      <button class="btn-modern btn-primary-modern" (click)="openModal()">
+        <i class="bi bi-plus-lg"></i>
+        <span>Agregar {{ getTabLabel() }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs modernos con animación -->
+  <div class="tabs-container">
+    <div class="tabs-wrapper">
+      <button *ngFor="let tab of tabs" class="tab-button" [class.active]="activeTab === tab.id"
+        (click)="changeTab(tab.id)" [style.--tab-color]="tab.color">
+        <i class="tab-icon bi" [ngClass]="tab.icon"></i>
+        <span class="tab-label">{{ tab.label }}</span>
+        <span class="tab-count">{{ getItemCountForTab(tab.id) }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Barra de búsqueda moderna -->
+  <div class="search-section">
+    <div class="search-box">
+      <i class="bi bi-search search-icon"></i>
+      <input type="text" class="search-input" placeholder="Buscar en {{ getTabLabel().toLowerCase() }}..."
+        [(ngModel)]="searchTerm" (ngModelChange)="filterItems()">
+      <button *ngIf="searchTerm" class="clear-search" (click)="searchTerm=''; filterItems()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Toggle para mostrar inactivos -->
+    <div class="filter-options">
+      <label class="checkbox-modern inline">
+        <input type="checkbox" [(ngModel)]="showInactive" (change)="onShowInactiveChange()">
+        <span class="checkbox-mark"></span>
+        <span class="checkbox-label">Mostrar inactivos</span>
+      </label>
+    </div>
+
+    <!-- Estadísticas rápidas -->
+    <div class="quick-stats">
+      <div class="stat-card">
+        <span class="stat-value">{{ filteredItems.length }}</span>
+        <span class="stat-label">Resultados</span>
+      </div>
+      <div class="stat-card"
+        *ngIf="activeTab === 'products' || activeTab === 'ingredients' || activeTab === 'combos' || activeTab === 'sauces' || activeTab === 'toppings'">
+        <span class="stat-value text-warning">{{ getWarningStockCount() }}</span>
+        <span class="stat-label">Stock Bajo</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value text-success">{{ getActiveItemsCount() }}</span>
+        <span class="stat-label">Activos</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenido principal con cards modernas -->
+  <div class="content-section">
+    <!-- Vista de cards para categorías -->
+    <div class="cards-grid" *ngIf="activeTab === 'categories'">
+      <div class="modern-card category-card" *ngFor="let item of filteredItems">
+        <div class="card-image">
+          <img [src]="getImageUrlWithFallback(item.image)" [alt]="item.name" (error)="onImageError($event)">
+          <div class="card-badge" [class.badge-active]="item.is_active" [class.badge-inactive]="!item.is_active">
+            {{ item.is_active ? 'Activo' : 'Inactivo' }}
+          </div>
+        </div>
+        <div class="card-content">
+          <h3 class="card-title">{{ item.name }}</h3>
+          <p class="card-description">{{ item.description || 'Sin descripción' }}</p>
+          <div class="card-meta">
+            <span><i class="bi bi-sort-numeric-up"></i> Orden: {{ item.display_order }}</span>
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-icon" (click)="editItem(item)" title="Editar">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn-icon" (click)="toggleStatus(item)" [title]="item.is_active ? 'Desactivar' : 'Activar'">
+            <i class="bi" [ngClass]="item.is_active ? 'bi-toggle-on' : 'bi-toggle-off'"></i>
+          </button>
+          <button class="btn-icon btn-danger" (click)="deleteItem(item)" title="Eliminar">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vista de tabla moderna para productos y otros -->
+    <div class="modern-table-container" *ngIf="activeTab !== 'categories'">
+      <!-- Wrapper para scroll -->
+      <div class="table-scroll-wrapper">
+        <table class="modern-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th *ngIf="activeTab === 'products' || activeTab === 'combos'">Imagen</th>
+              <th>Nombre</th>
+              <th *ngIf="activeTab === 'products'">Categoría</th>
+              <th *ngIf="activeTab === 'products'">Tipo</th>
+              <th *ngIf="activeTab === 'products' || activeTab === 'ingredients'">Costo</th>
+              <th *ngIf="activeTab === 'products'">Precio</th>
+              <th *ngIf="activeTab === 'products'">Ganancia</th>
+              <th *ngIf="activeTab === 'products' || activeTab === 'ingredients'">Stock</th>
+              <th *ngIf="activeTab === 'ingredients'">Unidad</th>
+
+              <!-- Columnas para combos -->
+              <th *ngIf="activeTab === 'combos'">Costo</th>
+              <th *ngIf="activeTab === 'combos'">Precio</th>
+              <th *ngIf="activeTab === 'combos'">Ganancia</th>
+              <th *ngIf="activeTab === 'combos'">Stock</th>
+              <!-- Columna de Stock para salsas y aderezos -->
+              <th *ngIf="activeTab === 'sauces' || activeTab === 'toppings'">Stock</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredItems" class="table-row">
+              <!-- ========================================== -->
+              <!-- COLUMNA: ID (Todas las tabs)               -->
+              <!-- ========================================== -->
+              <td>
+                <span class="id-badge">{{ item.id }}</span>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Imagen (Productos y Combos)       -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'products' || activeTab === 'combos'">
+                <img class="table-image" [src]="getImageUrlWithFallback(item.image)" [alt]="item.name"
+                  (error)="onImageError($event)">
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Nombre (Todas las tabs)           -->
+              <!-- ========================================== -->
+              <td>
+                <div class="item-info">
+                  <span class="item-name">{{ item.name }}</span>
+                  <span class="item-description" *ngIf="item.description">{{ item.description }}</span>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Categoría (Solo productos)        -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'products'">
+                <span class="category-tag">{{ item.category_name || item.category?.name || 'Sin categoría' }}</span>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Tipo (Solo productos)             -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'products'">
+                <span class="product-type-badge" [class.with-recipe]="item.has_recipe"
+                  [class.simple]="!item.has_recipe">
+                  <i class="bi" [ngClass]="item.has_recipe ? 'bi-egg-fried' : 'bi-box-seam'"></i>
+                  {{ item.has_recipe ? 'Con receta' : 'Simple' }}
+                </span>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Costo (Productos e Ingredientes)  -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'products' || activeTab === 'ingredients'">
+                <div class="price-container">
+                  <span class="price-tag cost">${{ item.cost | number:'1.2-2' }}</span>
+                  <i class="bi bi-calculator-fill ms-1 text-info" *ngIf="activeTab === 'products' && item.has_recipe"
+                    title="Costo calculado automáticamente por receta" style="font-size: 0.75rem;"></i>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Costo (Solo Combos)               -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'combos'">
+                <div class="price-container">
+                  <span class="price-tag cost">${{ item.cost | number:'1.2-2' }}</span>
+                  <i class="bi bi-calculator-fill ms-1 text-info" title="Costo calculado automáticamente"
+                    style="font-size: 0.75rem;"></i>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Precio (Solo Productos)           -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'products'">
+                <div class="price-container">
+                  <span class="price-tag">${{ item.price | number:'1.2-2' }}</span>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Precio (Solo Combos)              -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'combos'">
+                <div class="price-container">
+                  <span class="price-tag">${{ item.price | number:'1.2-2' }}</span>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Ganancia (Solo Productos)         -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'products'">
+                <div class="price-container">
+                  <span class="price-tag profit">${{ (item.price - item.cost) | number:'1.2-2' }}</span>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Ganancia (Solo Combos)            -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'combos'">
+                <div class="price-container">
+                  <span class="price-tag profit">${{ (item.price - item.cost) | number:'1.2-2' }}</span>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Stock (Productos e Ingredientes)  -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'products' || activeTab === 'ingredients'">
+                <div class="stock-indicator" [attr.data-status]="getStockStatus(item)">
+                  <span class="stock-value">{{ item.stock || 0 }}</span>
+                  <span class="stock-min" *ngIf="item.min_stock">/ {{ item.min_stock }}</span>
+                  <i class="bi bi-calculator-fill ms-1 text-info" *ngIf="activeTab === 'products' && item.has_recipe"
+                    title="Stock calculado automáticamente por receta" style="font-size: 0.75rem;"></i>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Stock (Solo Combos)               -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'combos'">
+                <div class="stock-indicator" [attr.data-status]="getStockStatus(item)">
+                  <span class="stock-value">{{ item.stock || 0 }}</span>
+                  <i class="bi bi-calculator-fill ms-1 text-purple"
+                    title="Stock calculado automáticamente según productos" style="font-size: 0.75rem;"></i>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Unidad (Solo Ingredientes)        -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'ingredients'">
+                <span class="unit-tag">{{ item.unit || '-' }}</span>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Stock (Salsas y Aderezos)         -->
+              <!-- ========================================== -->
+              <td *ngIf="activeTab === 'sauces' || activeTab === 'toppings'">
+                <div class="stock-indicator" [attr.data-status]="getStockStatus(item)">
+                  <span class="stock-value">{{ item.stock || 0 }}</span>
+                  <span class="stock-min" *ngIf="item.min_stock">/ {{ item.min_stock }}</span>
+                </div>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Estado (Todas las tabs)           -->
+              <!-- ========================================== -->
+              <td>
+                <span class="status-badge" [class.active]="item.is_active" [class.inactive]="!item.is_active">
+                  {{ item.is_active ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+
+              <!-- ========================================== -->
+              <!-- COLUMNA: Acciones (Todas las tabs)         -->
+              <!-- ========================================== -->
+              <td>
+                <div class="action-buttons">
+                  <!-- Botón Editar -->
+                  <button class="btn-action edit" (click)="editItem(item)" title="Editar">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+
+                  <!-- Botón de Receta (solo para productos CON receta) -->
+                  <button class="btn-action recipe" (click)="openRecipeModal(item)" title="Gestionar Receta"
+                    *ngIf="activeTab === 'products' && item.has_recipe">
+                    <i class="bi bi-egg-fried"></i>
+                  </button>
+
+                  <!-- Botón Toggle Activo/Inactivo -->
+                  <button class="btn-action toggle" (click)="toggleStatus(item)"
+                    [title]="item.is_active ? 'Desactivar' : 'Activar'">
+                    <i class="bi" [ngClass]="item.is_active ? 'bi-eye-slash' : 'bi-eye'"></i>
+                  </button>
+
+                  <!-- Botón Eliminar -->
+                  <button class="btn-action delete" (click)="deleteItem(item)" title="Eliminar">
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- FIN del wrapper de scroll -->
+
+      <!-- Empty state -->
+      <div class="empty-state" *ngIf="filteredItems.length === 0">
+        <i class="bi bi-inbox empty-icon"></i>
+        <h3>No hay {{ getTabLabel().toLowerCase() }}</h3>
+        <p>Comienza agregando tu primer elemento</p>
+        <button class="btn-modern btn-primary-modern" (click)="openModal()">
+          <i class="bi bi-plus-lg"></i>
+          Agregar {{ getTabLabel() }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Moderno (Crear/Editar) -->
+    <div class="modal-overlay" [class.show]="showModal" (click)="closeModal()">
+      <div class="modal-modern" (click)="$event.stopPropagation()">
+        <div class="modal-header-modern">
+          <h2 class="modal-title-modern">
+            {{ editingItem ? 'Editar' : 'Nuevo' }} {{ getTabLabel() }}
+          </h2>
+          <button class="modal-close" (click)="closeModal()">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <div class="modal-body-modern">
+          <form #itemForm="ngForm">
+             <!-- Selector de sucursales -->
+            <div class="form-group-modern"
+              *ngIf="!editingItem && (activeTab === 'categories' || activeTab === 'products' || activeTab === 'sauces' || activeTab === 'toppings')">
+              <label class="form-label-modern">Crear en sucursales</label>
+
+              <!-- Mensaje cuando tiene receta (solo productos) -->
+              <div class="alert alert-warning" *ngIf="activeTab === 'products' && currentItem.has_recipe"
+                style="margin-bottom: 1rem;">
+                <i class="bi bi-info-circle me-2"></i>
+                Los productos con receta solo pueden crearse en la sucursal actual: <strong>{{ getCurrentBranchName()
+                  }}</strong>
+              </div>
+
+              <div class="branches-selector"
+                [class.disabled-selector]="activeTab === 'products' && currentItem.has_recipe">
+                <div class="branch-option" *ngFor="let branch of availableBranches">
+                  <label class="checkbox-modern">
+                    <input type="checkbox" [value]="branch.id" [checked]="selectedBranches.includes(branch.id)"
+                      [disabled]="isBranchDisabled(branch.id)" (change)="toggleBranch(branch.id)">
+                    <span class="checkbox-mark"></span>
+                    <span class="branch-name"
+                      [class.text-muted]="isBranchDisabled(branch.id) && branch.id !== currentBranchId">
+                      {{ branch.name }}
+                      <span class="badge bg-primary ms-2" *ngIf="branch.id === currentBranchId">Actual</span>
+                      <span class="badge bg-secondary ms-1" *ngIf="branch.id === currentBranchId">(obligatoria)</span>
+                    </span>
+                  </label>
+                </div>
+                <div class="select-all-wrapper" *ngIf="!currentItem.has_recipe || activeTab !== 'products'">
+                  <button type="button" class="btn-link" (click)="selectAllBranches()">
+                    Seleccionar todas
+                  </button>
+                  <span class="separator">|</span>
+                  <button type="button" class="btn-link" (click)="clearBranches()">
+                    Solo actual
+                  </button>
+                </div>
+              </div>
+              <small class="form-text text-muted">
+                <i class="bi bi-info-circle me-1"></i>
+                La sucursal actual siempre estará seleccionada
+              </small>
+            </div>
+            <!-- Campos comunes -->
+            <div class="form-group-modern">
+              <label class="form-label-modern">Nombre *</label>
+              <input type="text" class="form-input-modern" [(ngModel)]="currentItem.name" name="name" required
+                placeholder="Ingrese el nombre">
+            </div>
+
+            <div class="form-group-modern" *ngIf="activeTab !== 'sauces' && activeTab !== 'toppings'">
+              <label class="form-label-modern">Descripción</label>
+              <textarea class="form-input-modern" [(ngModel)]="currentItem.description" name="description" rows="3"
+                placeholder="Ingrese una descripción (opcional)"></textarea>
+            </div>
+
+            <!-- Campos específicos por tipo - PRODUCTOS -->
+            <div *ngIf="activeTab === 'products'">
+              <div class="form-row">
+                <div class="form-group-modern">
+                  <label class="form-label-modern">Categoría *</label>
+                  <select class="form-input-modern" [(ngModel)]="currentItem.category_id" name="category_id" required>
+                    <option [value]="null">Seleccionar...</option>
+                    <option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Checkbox para indicar si tiene receta -->
+              <div class="form-group-modern">
+                <label class="toggle-modern">
+                  <input type="checkbox" [(ngModel)]="currentItem.has_recipe" name="has_recipe"
+                    (change)="onRecipeToggleChange()" [disabled]="editingItem">
+                  <span class="toggle-slider"></span>
+                  <span class="toggle-label">
+                    <i class="bi bi-egg-fried me-2"></i>
+                    Este producto se elabora con ingredientes (receta)
+                  </span>
+                </label>
+                <small class="form-text text-muted" *ngIf="!editingItem">
+                  <i class="bi bi-info-circle me-1"></i>
+                  Si activas esta opción, podrás definir los ingredientes después de guardar el producto.
+                </small>
+                <small class="form-text text-muted" *ngIf="editingItem && currentItem.has_recipe">
+                  <i class="bi bi-info-circle me-1"></i>
+                  No se puede desactivar una vez que tiene receta. Elimina la receta primero.
+                </small>
+              </div>
+
+              <!-- Alerta si tiene receta (modo edición) -->
+              <div class="alert alert-info" *ngIf="currentItem.has_recipe && editingItem">
+                <i class="bi bi-egg-fried me-2"></i>
+                <strong>Producto con receta:</strong> El costo y el stock se calculan automáticamente según los
+                ingredientes. El precio de venta se configura manualmente.
+                <button type="button" class="btn btn-sm btn-primary ms-2" (click)="openRecipeModalFromEdit()">
+                  <i class="bi bi-pencil me-1"></i>
+                  Editar receta
+                </button>
+              </div>
+
+              <!-- Campos de Costo y Precio -->
+              <div class="form-row">
+                <div class="form-group-modern">
+                  <label class="form-label-modern">
+                    Costo
+                    <span *ngIf="currentItem.has_recipe" class="badge bg-info ms-2">
+                      <i class="bi bi-calculator"></i> Auto
+                    </span>
+                  </label>
+                  <div class="input-with-prefix">
+                    <span class="input-prefix">$</span>
+                    <input type="number" class="form-input-modern with-prefix" [(ngModel)]="currentItem.cost"
+                      name="cost" [readonly]="currentItem.has_recipe" [disabled]="currentItem.has_recipe" min="0"
+                      step="0.01" [placeholder]="currentItem.has_recipe ? 'Se calculará por receta' : '0.00'">
+                  </div>
+                  <small class="form-text text-muted" *ngIf="!currentItem.has_recipe">
+                    Costo del producto (lo que te cuesta producirlo o comprarlo)
+                  </small>
+                  <small class="form-text text-muted" *ngIf="currentItem.has_recipe">
+                    <i class="bi bi-calculator me-1"></i>
+                    Se calcula automáticamente sumando los costos de los ingredientes
+                  </small>
+                </div>
+
+                <div class="form-group-modern">
+                  <label class="form-label-modern">
+                    Precio de venta *
+                  </label>
+                  <div class="input-with-prefix">
+                    <span class="input-prefix">$</span>
+                    <input type="number" class="form-input-modern with-prefix" [(ngModel)]="currentItem.price"
+                      name="price" required min="0" step="0.01" placeholder="0.00">
+                  </div>
+                  <small class="form-text text-muted">
+                    Precio al que vendes el producto al cliente
+                  </small>
+                </div>
+              </div>
+
+              <!-- Campos de Stock PARA PRODUCTOS -->
+              <div class="form-row">
+                <div class="form-group-modern">
+                  <label class="form-label-modern">
+                    Stock Actual
+                    <span *ngIf="currentItem.has_recipe" class="badge bg-info ms-2">
+                      <i class="bi bi-calculator"></i> Auto
+                    </span>
+                  </label>
+                  <input type="number" class="form-input-modern" [(ngModel)]="currentItem.stock" name="stock" min="0"
+                    step="0.01" [readonly]="currentItem.has_recipe" [disabled]="currentItem.has_recipe"
+                    [placeholder]="currentItem.has_recipe ? 'Se calcula automáticamente' : '0'">
+                  <small class="form-text text-muted" *ngIf="currentItem.has_recipe">
+                    <i class="bi bi-info-circle me-1"></i>
+                    El stock se calcula automáticamente según los ingredientes disponibles en la receta
+                  </small>
+                  <small class="form-text text-muted" *ngIf="!currentItem.has_recipe">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Cantidad actual disponible en inventario
+                  </small>
+                </div>
+
+                <div class="form-group-modern">
+                  <label class="form-label-modern">Stock Mínimo</label>
+                  <input type="number" class="form-input-modern" [(ngModel)]="currentItem.min_stock" name="min_stock"
+                    min="0" step="0.01" placeholder="5">
+                  <small class="form-text text-muted">
+                    Recibirás una alerta cuando el stock esté por debajo de este valor
+                  </small>
+                </div>
+              </div>
+
+              <!-- Mensaje para productos con receta (modo creación) -->
+              <div class="alert alert-warning" *ngIf="currentItem.has_recipe && !editingItem">
+                <i class="bi bi-lightbulb me-2"></i>
+                <strong>Productos con receta:</strong> Después de guardar, define los ingredientes haciendo clic en
+                <span class="badge bg-warning text-dark mx-1"><i class="bi bi-egg-fried"></i></span>.
+                El stock se calculará automáticamente según los ingredientes disponibles.
+              </div>
+            </div>
+
+            <!-- Campos de Stock PARA INGREDIENTES (separado) -->
+            <div class="form-row" *ngIf="activeTab === 'ingredients'">
+              <div class="form-group-modern">
+                <label class="form-label-modern">Stock Actual</label>
+                <input type="number" class="form-input-modern" [(ngModel)]="currentItem.stock" name="stock" min="0"
+                  step="0.01" placeholder="0">
+                <small class="form-text text-muted">
+                  Cantidad actual disponible del ingrediente
+                </small>
+              </div>
+
+              <div class="form-group-modern">
+                <label class="form-label-modern">Stock Mínimo</label>
+                <input type="number" class="form-input-modern" [(ngModel)]="currentItem.min_stock" name="min_stock"
+                  min="0" step="0.01" placeholder="0">
+                <small class="form-text text-muted">
+                  Alerta cuando esté por debajo de este valor
+                </small>
+              </div>
+            </div>
+
+            <!-- Precio SOLO para combos -->
+            <div class="form-group-modern" *ngIf="activeTab === 'combos'">
+              <label class="form-label-modern">Precio *</label>
+              <div class="input-with-prefix">
+                <span class="input-prefix">$</span>
+                <input type="number" class="form-input-modern with-prefix" [(ngModel)]="currentItem.price" name="price"
+                  required min="0" step="0.01" placeholder="0.00">
+              </div>
+            </div>
+
+            <!-- Productos del combo -->
+            <div class="form-group-modern" *ngIf="activeTab === 'combos'">
+              <label class="form-label-modern">Productos del Combo *</label>
+
+              <!-- Alert informativo -->
+              <div class="alert alert-info" style="margin-bottom: 1rem;">
+                <i class="bi bi-calculator me-2"></i>
+                <strong>Costo y Stock automáticos:</strong> El costo del combo se calcula sumando los costos de los
+                productos. El stock se calcula según el producto con menor disponibilidad.
+              </div>
+
+              <div class="combo-products-list">
+                <div class="combo-product-item-extended" *ngFor="let cp of comboProducts; let i = index">
+
+                  <!-- FILA 1: Selector de producto -->
+                  <div class="combo-field product-selector full-width">
+                    <label>Producto *</label>
+                    <select class="form-input-modern" [(ngModel)]="cp.product_id" [name]="'product_' + i"
+                      (ngModelChange)="onComboProductChange(i)">
+                      <option value="">Seleccionar producto...</option>
+                      <option *ngFor="let prod of products" [value]="prod.id">
+                        {{ prod.name }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- FILA 2: Resto de campos -->
+
+                  <!-- Imagen del producto -->
+                  <div class="combo-field product-image" *ngIf="cp.product_id">
+                    <label>Imagen</label>
+                    <img [src]="getProductImage(cp.product_id)" [alt]="getProductName(cp.product_id)"
+                      class="combo-product-img" (error)="onImageError($event)">
+                  </div>
+
+                  <!-- Cantidad -->
+                  <div class="combo-field quantity-input">
+                    <label>Cantidad *</label>
+                    <input type="number" class="form-input-modern" [(ngModel)]="cp.quantity" [name]="'quantity_' + i"
+                      min="0.01" step="0.01" placeholder="1.00" (ngModelChange)="calculateComboCost()">
+                  </div>
+
+                  <!-- Costo unitario -->
+                  <div class="combo-field cost-display" *ngIf="cp.product_id">
+                    <label>Costo Unit.</label>
+                    <div class="cost-value">
+                      ${{ getProductCost(cp.product_id) | number:'1.2-2' }}
+                    </div>
+                  </div>
+
+                  <!-- Precio de venta unitario -->
+                  <div class="combo-field price-display" *ngIf="cp.product_id">
+                    <label>Precio Unit.</label>
+                    <div class="price-value">
+                      ${{ getProductPrice(cp.product_id) | number:'1.2-2' }}
+                    </div>
+                  </div>
+
+                  <!-- Stock disponible -->
+                  <div class="combo-field stock-display" *ngIf="cp.product_id">
+                    <label>Stock Disp.</label>
+                    <div class="stock-value" [class.low-stock]="isLowStock(cp.product_id, cp.quantity)">
+                      <i class="bi bi-box-seam me-1"></i>
+                      {{ getProductStock(cp.product_id) }}
+                    </div>
+                  </div>
+
+                  <!-- Subtotal COSTO -->
+                  <div class="combo-field subtotal-display" *ngIf="cp.product_id">
+                    <label>Subtotal Costo</label>
+                    <div class="subtotal-value cost">
+                      ${{ (getQuantityOrZero(cp.quantity) * getProductCost(cp.product_id)) | number:'1.2-2' }}
+                    </div>
+                  </div>
+
+                  <!-- Botón eliminar -->
+                  <div class="combo-field remove-button">
+                    <button type="button" class="btn-icon-modern danger" (click)="removeComboProduct(i)"
+                      [disabled]="comboProducts.length === 1">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Botón agregar producto -->
+                <button type="button" class="btn-add-product" (click)="addComboProduct()">
+                  <i class="bi bi-plus-circle"></i> Agregar Producto
+                </button>
+              </div>
+
+              <!-- Resumen del combo -->
+              <div class="combo-summary" *ngIf="hasValidProducts()">
+                <div class="summary-row">
+                  <span class="summary-label">
+                    <i class="bi bi-calculator me-2"></i>
+                    Costo Total del Combo:
+                  </span>
+                  <span class="summary-value cost">
+                    ${{ calculatedComboCost | number:'1.2-2' }}
+                  </span>
+                </div>
+
+                <div class="summary-row">
+                  <span class="summary-label">
+                    <i class="bi bi-tag me-2"></i>
+                    Precio de Venta del Combo:
+                  </span>
+                  <span class="summary-value price">
+                    ${{ currentItem.price | number:'1.2-2' }}
+                  </span>
+                </div>
+
+                <div class="summary-row">
+                  <span class="summary-label">
+                    <i class="bi bi-box-seam me-2"></i>
+                    Stock Calculado:
+                  </span>
+                  <span class="summary-value stock" [class.low-stock]="calculatedComboStock === 0">
+                    {{ calculatedComboStock }} unidades
+                  </span>
+                </div>
+
+                <div class="summary-row profit" *ngIf="currentItem.price && currentItem.price > 0">
+                  <span class="summary-label">
+                    <i class="bi bi-cash-coin me-2"></i>
+                    Ganancia por Combo:
+                  </span>
+                  <span class="summary-value">
+                    ${{ (currentItem.price - calculatedComboCost) | number:'1.2-2' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Campos para ingredientes -->
+            <div class="form-row" *ngIf="activeTab === 'ingredients'">
+              <div class="form-group-modern">
+                <label class="form-label-modern">Unidad</label>
+                <input type="text" class="form-input-modern" [(ngModel)]="currentItem.unit" name="unit"
+                  placeholder="kg, lt, unidad...">
+              </div>
+
+              <div class="form-group-modern">
+                <label class="form-label-modern">Costo (lo que nos cuesta)</label>
+                <div class="input-with-prefix">
+                  <span class="input-prefix">$</span>
+                  <input type="number" class="form-input-modern with-prefix" [(ngModel)]="currentItem.cost" name="cost"
+                    min="0" step="0.01" placeholder="0.00">
+                </div>
+              </div>
+            </div>
+
+            <!-- Campos de Stock PARA SALSAS Y ADEREZOS -->
+            <div class="form-row" *ngIf="activeTab === 'sauces' || activeTab === 'toppings'">
+              <div class="form-group-modern">
+                <label class="form-label-modern">Stock Actual</label>
+                <input type="number" class="form-input-modern" [(ngModel)]="currentItem.stock" name="stock" min="0"
+                  step="0.01" placeholder="0">
+                <small class="form-text text-muted">
+                  Cantidad disponible
+                </small>
+              </div>
+
+              <div class="form-group-modern">
+                <label class="form-label-modern">Stock Mínimo</label>
+                <input type="number" class="form-input-modern" [(ngModel)]="currentItem.min_stock" name="min_stock"
+                  min="0" step="0.01" placeholder="0">
+                <small class="form-text text-muted">
+                  Alerta cuando esté por debajo de este valor
+                </small>
+              </div>
+            </div>
+
+            <!-- Orden para categorías -->
+            <div class="form-group-modern" *ngIf="activeTab === 'categories'">
+              <label class="form-label-modern">Orden de visualización</label>
+              <input type="number" class="form-input-modern" [(ngModel)]="currentItem.display_order"
+                name="display_order" min="0">
+            </div>
+
+            <!-- CAMPO DE IMAGEN UNIFICADO PARA PRODUCTOS, CATEGORÍAS Y COMBOS -->
+            <div class="form-group-modern"
+              *ngIf="activeTab === 'products' || activeTab === 'categories' || activeTab === 'combos'">
+              <label class="form-label-modern">Imagen</label>
+
+              <!-- Preview SOLO si hay imagePreview O currentItem.image válida -->
+              <div class="image-preview-container"
+                *ngIf="imagePreview || (currentItem.image && currentItem.image !== '' && !isNoImage(currentItem.image))">
+                <img *ngIf="imagePreview || currentItem.image" [src]="imagePreview || getImageUrl(currentItem.image)"
+                  alt="Preview" class="image-preview-img" (error)="handleImagePreviewError($event)">
+                <button type="button" class="remove-image-btn" (click)="removeImage()">
+                  <i class="bi bi-x-circle-fill"></i>
+                </button>
+              </div>
+
+              <!-- Input de archivo -->
+              <div class="image-upload"
+                *ngIf="!imagePreview && (!currentItem.image || currentItem.image === '' || isNoImage(currentItem.image))">
+                <input type="file" [id]="'imageInput' + activeTab" #fileInput (change)="onImageSelected($event)"
+                  accept="image/jpeg,image/jpg,image/png,image/gif,image/webp" style="display: none"
+                  [disabled]="uploading">
+                <label [for]="'imageInput' + activeTab" class="upload-button">
+                  <i class="bi bi-cloud-arrow-up"></i>
+                  <span>Seleccionar imagen</span>
+                </label>
+                <p class="no-image-text">No hay imagen</p>
+              </div>
+
+              <!-- Barra de progreso -->
+              <div class="upload-progress" *ngIf="uploading">
+                <div class="progress">
+                  <div class="progress-bar progress-bar-striped progress-bar-animated" [style.width.%]="uploadProgress">
+                    {{ uploadProgress }}%
+                  </div>
+                </div>
+              </div>
+
+              <small class="form-text text-muted">
+                Formatos: JPG, PNG, GIF, WEBP. Máximo: 5MB
+              </small>
+            </div>
+
+            <!-- Estado activo -->
+            <div class="form-group-modern">
+              <label class="toggle-modern">
+                <input type="checkbox" [(ngModel)]="currentItem.is_active" name="is_active">
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">{{ currentItem.is_active ? 'Activo' : 'Inactivo' }}</span>
+              </label>
+            </div>
+          </form>
+        </div>
+
+        <div class="modal-footer-modern">
+          <button class="btn-modern btn-secondary-modern" (click)="closeModal()" [disabled]="saving || uploading">
+            Cancelar
+          </button>
+          <button class="btn-modern btn-primary-modern" (click)="saveItem()" [disabled]="saving || uploading">
+            <span *ngIf="!saving && !uploading">
+              <i class="bi bi-check-lg"></i>
+              {{ editingItem ? 'Actualizar' : 'Guardar' }}
+            </span>
+            <span *ngIf="uploading">
+              <span class="spinner-modern"></span>
+              Subiendo imagen...
+            </span>
+            <span *ngIf="saving && !uploading">
+              <span class="spinner-modern"></span>
+              Guardando...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Receta/Ingredientes -->
+    <div class="modal-overlay" [class.show]="showRecipeModal" (click)="closeRecipeModal()">
+      <div class="modal-modern modal-large" (click)="$event.stopPropagation()">
+        <div class="modal-header-modern">
+          <h2 class="modal-title-modern">
+            <i class="bi bi-egg-fried me-2"></i>
+            Receta del Producto
+          </h2>
+          <button class="modal-close" (click)="closeRecipeModal()">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <div class="modal-body-modern">
+          <!-- Mensaje informativo -->
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Define los ingredientes necesarios para este producto. El <strong>costo se calculará
+              automáticamente</strong> sumando los costos de los ingredientes. El <strong>precio de venta debe
+              configurarse manualmente</strong> en el producto.
+          </div>
+
+          <!-- Lista de ingredientes en la receta -->
+          <div class="recipe-list">
+            <div class="recipe-header">
+              <h6>Ingredientes de la receta</h6>
+              <button type="button" class="btn-modern btn-primary-modern btn-sm" (click)="addRecipeIngredient()">
+                <i class="bi bi-plus-circle"></i>
+                Agregar Ingrediente
+              </button>
+            </div>
+
+            <div class="recipe-items">
+              <div class="recipe-item" *ngFor="let recipe of recipeIngredients; let i = index">
+                <!-- Selector de ingrediente -->
+                <div class="recipe-field ingredient-select">
+                  <label>Ingrediente *</label>
+                  <select class="form-input-modern" [(ngModel)]="recipe.ingredient_id"
+                    (ngModelChange)="calculateRecipeCost()" name="ingredient_{{i}}">
+                    <option [value]="null">Seleccionar ingrediente...</option>
+                    <option *ngFor="let ing of ingredients" [value]="ing.id">
+                      {{ ing.name }} ({{ ing.unit }}) - Costo: ${{ ing.cost | number:'1.2-2' }}
+                    </option>
+                  </select>
+                </div>
+
+                <!-- Cantidad -->
+                <div class="recipe-field quantity-input">
+                  <label>Cantidad *</label>
+                  <input type="number" class="form-input-modern" [(ngModel)]="recipe.quantity"
+                    (ngModelChange)="calculateRecipeCost()" name="quantity_{{i}}" min="0.001" step="0.001"
+                    placeholder="1.0">
+                </div>
+
+                <!-- Unidad -->
+                <div class="recipe-field unit-input">
+                  <label>Unidad</label>
+                  <input type="text" class="form-input-modern" name="unit_{{i}}" placeholder="Auto" readonly
+                    [value]="getIngredientUnit(recipe.ingredient_id)">
+                </div>
+
+                <!-- Subtotal COSTO -->
+                <div class="recipe-field subtotal-display">
+                  <label>Costo</label>
+                  <div class="subtotal-value cost">
+                    ${{ getRecipeItemCost(recipe) | number:'1.2-2' }}
+                  </div>
+                </div>
+
+                <!-- Botón eliminar -->
+                <div class="recipe-field remove-button">
+                  <button type="button" class="btn-icon-modern danger" (click)="removeRecipeIngredient(i)"
+                    title="Eliminar">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Empty state -->
+              <div class="empty-state-small" *ngIf="recipeIngredients.length === 0">
+                <i class="bi bi-inbox"></i>
+                <p>No hay ingredientes en la receta</p>
+                <button type="button" class="btn-modern btn-primary-modern btn-sm" (click)="addRecipeIngredient()">
+                  <i class="bi bi-plus-circle"></i>
+                  Agregar Primer Ingrediente
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumen de costos -->
+          <div class="cost-summary">
+            <div class="cost-breakdown">
+              <div class="cost-row total">
+                <span class="cost-label">Costo Total de la receta:</span>
+                <span class="cost-value primary">${{ calculatedCost | number:'1.2-2' }}</span>
+              </div>
+            </div>
+            <div class="cost-info">
+              <small>
+                <i class="bi bi-info-circle me-1"></i>
+                Este costo se aplicará automáticamente al producto. El precio de venta debe configurarse manualmente.
+              </small>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer-modern">
+          <button class="btn-modern btn-danger-modern" (click)="deleteRecipe()" *ngIf="recipeIngredients.length > 0"
+            [disabled]="saving">
+            <i class="bi bi-trash"></i>
+            Eliminar Receta
+          </button>
+
+          <div class="flex-spacer"></div>
+
+          <button class="btn-modern btn-secondary-modern" (click)="closeRecipeModal()" [disabled]="saving">
+            Cancelar
+          </button>
+          <button class="btn-modern btn-primary-modern" (click)="saveRecipe()"
+            [disabled]="saving || recipeIngredients.length === 0">
+            <span *ngIf="!saving">
+              <i class="bi bi-check-lg"></i>
+              Guardar Receta
+            </span>
+            <span *ngIf="saving">
+              <span class="spinner-modern"></span>
+              Guardando...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

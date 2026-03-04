@@ -1,0 +1,426 @@
+<div class="orders-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">
+          Gestión de Pedidos
+        </h1>
+        <p class="page-subtitle">Visualización y control de pedidos en tiempo real</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn me-2" (click)="clearFilters()" *ngIf="searchTerm || selectedSource || selectedPaymentStatus">
+          <i class="bi bi-x-lg"></i>
+          Limpiar filtros
+        </button>
+        <button class="btn btn-primary" (click)="loadOrders()" [disabled]="loading">
+          <i class="bi bi-arrow-clockwise" [class.spin]="loading"></i>
+          <span class="d-none d-md-inline ms-1">Actualizar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estadísticas -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon total">
+        <i class="bi bi-cart3"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.totalOrders }}</span>
+        <span class="stat-label">Total Pedidos</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon revenue">
+        <i class="bi bi-currency-dollar"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">${{ stats.totalRevenue | number:'1.0-0' }}</span>
+        <span class="stat-label">Ingresos</span>
+      </div>
+    </div>
+
+    <div class="stat-card clickable" [class.active]="activeTab === 'pending'" (click)="setActiveTab('pending')">
+      <div class="stat-icon pending">
+        <i class="bi bi-hourglass-split"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.pendingOrders }}</span>
+        <span class="stat-label">Pendientes</span>
+      </div>
+    </div>
+
+    <div class="stat-card clickable" [class.active]="activeTab === 'preparing'" (click)="setActiveTab('preparing')">
+      <div class="stat-icon preparing">
+        <i class="bi bi-fire"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.preparingOrders + stats.readyOrders }}</span>
+        <span class="stat-label">En Proceso</span>
+      </div>
+    </div>
+
+    <div class="stat-card clickable" [class.active]="activeTab === 'completed'" (click)="setActiveTab('completed')">
+      <div class="stat-icon completed">
+        <i class="bi bi-check-circle"></i>
+      </div>
+      <div class="stat-info">
+        <span class="stat-value">{{ stats.completedOrders }}</span>
+        <span class="stat-label">Completados</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros y Controles -->
+  <div class="filters-card">
+    <div class="filters-top">
+      <!-- Tabs -->
+      <div class="tabs-container">
+        <button class="tab-btn" [class.active]="activeTab === 'all'" (click)="setActiveTab('all')">
+          Todos
+          <span class="tab-count">{{ orders.length }}</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'pending'" (click)="setActiveTab('pending')">
+          Pendientes
+          <span class="tab-count pending">{{ stats.pendingOrders }}</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'preparing'" (click)="setActiveTab('preparing')">
+          En Proceso
+          <span class="tab-count preparing">{{ stats.preparingOrders + stats.readyOrders }}</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'completed'" (click)="setActiveTab('completed')">
+          Finalizados
+          <span class="tab-count">{{ stats.completedOrders }}</span>
+        </button>
+        <button class="tab-btn" [class.active]="activeTab === 'cancelled'" (click)="setActiveTab('cancelled')">
+          Cancelados
+          <span class="tab-count cancelled">{{ stats.cancelledOrders }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="filters-bottom">
+      <!-- Búsqueda -->
+      <div class="search-wrapper">
+        <i class="bi bi-search"></i>
+        <input 
+          type="text" 
+          class="form-control" 
+          placeholder="Buscar por número, cliente o teléfono..." 
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearchChange()">
+        <button class="clear-search" *ngIf="searchTerm" (click)="searchTerm = ''; onSearchChange()">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+
+      <!-- Filtros adicionales -->
+      <div class="filter-group">
+        <select class="form-select" [(ngModel)]="selectedSource" (change)="filterOrders()">
+          <option value="">Todos los orígenes</option>
+          <option value="pos">🏪 POS</option>
+          <option value="app">📱 App Móvil</option>
+          <option value="pedidos_ya">🚴 PedidosYa</option>
+        </select>
+
+        <select class="form-select" [(ngModel)]="selectedPaymentStatus" (change)="filterOrders()">
+          <option value="">Estado de pago</option>
+          <option value="paid">✅ Pagados</option>
+          <option value="pending">⏳ Pendientes</option>
+        </select>
+
+        <input 
+          type="date" 
+          class="form-control date-input" 
+          [(ngModel)]="selectedDate" 
+          (change)="loadOrders()">
+      </div>
+    </div>
+
+    <!-- Info de resultados -->
+    <div class="results-info" *ngIf="!loading">
+      <span class="results-count">
+        Mostrando <strong>{{ getStartIndex() }}-{{ getEndIndex() }}</strong> de <strong>{{ filteredOrders.length }}</strong> pedidos
+      </span>
+      <div class="page-size-selector">
+        <label>Mostrar:</label>
+        <select [(ngModel)]="itemsPerPage" (change)="onPageSizeChange()">
+          <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista de pedidos -->
+  <div class="orders-container" *ngIf="!loading">
+    <div class="orders-grid">
+      <div class="order-card" 
+           *ngFor="let order of paginatedOrders" 
+           [class.status-confirmed]="order.status === 'confirmed'"
+           [class.status-preparing]="order.status === 'preparing'"
+           [class.status-ready]="order.status === 'ready'"
+           [class.status-completed]="order.status === 'completed'"
+           [class.status-cancelled]="order.status === 'cancelled'"
+           (click)="viewOrder(order)">
+        
+        <!-- Header del pedido -->
+        <div class="order-header">
+          <div class="order-info">
+            <div class="order-number-row">
+              <h5 class="order-number">#{{ order.order_number }}</h5>
+              <span class="source-badge" [style.background]="getSourceColor(order.order_source) + '20'" 
+                    [style.color]="getSourceColor(order.order_source)">
+                <i [class]="getSourceIcon(order.order_source)"></i>
+                {{ getSourceName(order.order_source) }}
+              </span>
+            </div>
+            <small class="order-time">
+              <i class="bi bi-clock"></i>
+              {{ formatDateTime(order.created_at) }}
+              <span class="time-ago">({{ getTimeAgo(order.created_at) }})</span>
+            </small>
+          </div>
+          <span [class]="getStatusBadgeClass(order.status)">
+            <i [class]="getStatusIcon(order.status)"></i>
+            {{ getStatusLabel(order.status) }}
+          </span>
+        </div>
+
+        <!-- Body del pedido -->
+        <div class="order-body">
+          <!-- Cliente -->
+          <div class="customer-row">
+            <i class="bi bi-person-circle"></i>
+            <div class="customer-info">
+              <strong>{{ order.user_name || order.admin_name || 'Cliente' }}</strong>
+              <small>{{ order.customer_phone || 'Sin teléfono' }}</small>
+            </div>
+          </div>
+
+          <!-- Detalles -->
+          <div class="order-details">
+            <span class="detail-chip">
+              <i class="bi bi-box"></i>
+              {{ order.items_count || 0 }} productos
+            </span>
+            <span class="detail-chip">
+              <i class="bi bi-bag"></i>
+              {{ getOrderTypeLabel(order.order_type) }}
+            </span>
+          </div>
+
+          <!-- Pago -->
+          <div class="payment-row">
+            <div class="payment-methods">
+              <ng-container *ngIf="order.payments && order.payments.length > 1">
+                <span class="payment-chip" *ngFor="let payment of order.payments">
+                  <i [class]="getPaymentIcon(payment.payment_method)" 
+                     [style.color]="getPaymentColor(payment.payment_method)"></i>
+                  ${{ payment.amount | number:'1.0-0' }}
+                </span>
+              </ng-container>
+              <ng-container *ngIf="!order.payments || order.payments.length <= 1">
+                <span class="payment-chip">
+                  <i [class]="getPaymentIcon(order.payment_method)" 
+                     [style.color]="getPaymentColor(order.payment_method)"></i>
+                  {{ getPaymentMethodLabel(order.payment_method) }}
+                </span>
+              </ng-container>
+            </div>
+            <span class="payment-status" 
+                  [class.paid]="order.payment_status === 'paid'"
+                  [class.pending]="order.payment_status !== 'paid'">
+              <i [class]="order.payment_status === 'paid' ? 'bi bi-check-circle-fill' : 'bi bi-clock'"></i>
+              {{ order.payment_status === 'paid' ? 'Pagado' : 'Pendiente' }}
+            </span>
+          </div>
+
+          <!-- Footer -->
+          <div class="order-footer">
+            <div class="order-total">
+              <span class="label">Total</span>
+              <span class="amount">${{ order.total | number:'1.0-0' }}</span>
+            </div>
+            <small class="order-meta" *ngIf="order.admin_name">
+              <i class="bi bi-person-badge"></i> {{ order.admin_name }}
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paginación -->
+    <div class="pagination-container" *ngIf="totalPages > 1">
+      <div class="pagination-info">
+        Página {{ currentPage }} de {{ totalPages }}
+      </div>
+      
+      <div class="pagination-controls">
+        <button class="page-btn" (click)="goToPage(1)" [disabled]="currentPage === 1" title="Primera">
+          <i class="bi bi-chevron-double-left"></i>
+        </button>
+        <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1" title="Anterior">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        
+        <div class="page-numbers">
+          <button 
+            *ngFor="let page of getVisiblePages()" 
+            class="page-num" 
+            [class.active]="page === currentPage"
+            (click)="goToPage(page)">
+            {{ page }}
+          </button>
+        </div>
+        
+        <button class="page-btn" (click)="nextPage()" [disabled]="currentPage === totalPages" title="Siguiente">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+        <button class="page-btn" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages" title="Última">
+          <i class="bi bi-chevron-double-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-container" *ngIf="loading">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p>Cargando pedidos...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="!loading && filteredOrders.length === 0">
+    <i class="bi bi-inbox"></i>
+    <h3>No hay pedidos</h3>
+    <p>No se encontraron pedidos con los filtros seleccionados</p>
+    <button class="btn btn-primary mt-3" (click)="clearFilters()">
+      <i class="bi bi-arrow-clockwise"></i> Limpiar filtros
+    </button>
+  </div>
+</div>
+
+<!-- Modal Ver Detalle -->
+<div class="modal fade" [class.show]="showOrderModal" [style.display]="showOrderModal ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content" *ngIf="selectedOrder">
+      <div class="modal-header">
+        <div class="modal-title-container">
+          <h5 class="modal-title">Pedido #{{ selectedOrder.order_number }}</h5>
+          <div class="modal-badges">
+            <span [class]="getStatusBadgeClass(selectedOrder.status)">
+              <i [class]="getStatusIcon(selectedOrder.status)"></i>
+              {{ getStatusLabel(selectedOrder.status) }}
+            </span>
+            <span class="source-badge" [style.background]="getSourceColor(selectedOrder.order_source) + '20'" 
+                  [style.color]="getSourceColor(selectedOrder.order_source)">
+              <i [class]="getSourceIcon(selectedOrder.order_source)"></i>
+              {{ getSourceName(selectedOrder.order_source) }}
+            </span>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="closeOrderModal()"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-grid">
+          <!-- Info del cliente -->
+          <div class="info-card">
+            <h6><i class="bi bi-person"></i> Cliente</h6>
+            <div class="info-content">
+              <p><strong>{{ selectedOrder.user_name || 'Cliente' }}</strong></p>
+              <p><i class="bi bi-telephone"></i> {{ selectedOrder.customer_phone || 'No registrado' }}</p>
+              <p><i class="bi bi-envelope"></i> {{ selectedOrder.user_email || 'No registrado' }}</p>
+              <p><i class="bi bi-bag"></i> {{ getOrderTypeLabel(selectedOrder.order_type) }}</p>
+            </div>
+          </div>
+
+          <!-- Info de pago -->
+          <div class="info-card">
+            <h6><i class="bi bi-credit-card"></i> Pago</h6>
+            <div class="info-content">
+              <div class="payments-list" *ngIf="selectedOrder.payments && selectedOrder.payments.length > 0">
+                <div class="payment-row-detail" *ngFor="let payment of selectedOrder.payments">
+                  <span class="payment-method">
+                    <i [class]="getPaymentIcon(payment.payment_method)" 
+                       [style.color]="getPaymentColor(payment.payment_method)"></i>
+                    {{ getPaymentMethodLabel(payment.payment_method) }}
+                  </span>
+                  <strong>${{ payment.amount | number:'1.2-2' }}</strong>
+                </div>
+              </div>
+              <div class="payment-row-detail" *ngIf="!selectedOrder.payments || selectedOrder.payments.length === 0">
+                <span class="payment-method">
+                  <i [class]="getPaymentIcon(selectedOrder.payment_method)" 
+                     [style.color]="getPaymentColor(selectedOrder.payment_method)"></i>
+                  {{ getPaymentMethodLabel(selectedOrder.payment_method) }}
+                </span>
+                <strong>${{ selectedOrder.total | number:'1.2-2' }}</strong>
+              </div>
+              <div class="payment-total">
+                <span>Total:</span>
+                <strong>${{ selectedOrder.total | number:'1.2-2' }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Items -->
+        <div class="items-card">
+          <h6><i class="bi bi-bag"></i> Productos</h6>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Producto</th>
+                  <th class="text-center">Cant.</th>
+                  <th class="text-end">Precio</th>
+                  <th class="text-end">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of selectedOrder.items">
+                  <td>
+                    <strong>{{ item.product_name || item.name }}</strong>
+                    <small class="d-block text-muted" *ngIf="item.special_instructions || item.notes">
+                      {{ item.special_instructions || item.notes }}
+                    </small>
+                  </td>
+                  <td class="text-center">{{ item.quantity }}</td>
+                  <td class="text-end">${{ (item.unit_price || item.price) | number:'1.2-2' }}</td>
+                  <td class="text-end">${{ (item.subtotal || item.quantity * (item.unit_price || item.price)) | number:'1.2-2' }}</td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr *ngIf="selectedOrder.discount_amount > 0">
+                  <td colspan="3" class="text-end">Descuento:</td>
+                  <td class="text-end text-danger">-${{ selectedOrder.discount_amount | number:'1.2-2' }}</td>
+                </tr>
+                <tr class="total-row">
+                  <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                  <td class="text-end"><strong>${{ selectedOrder.total | number:'1.2-2' }}</strong></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <!-- Notas -->
+        <div class="notes-card" *ngIf="selectedOrder.customer_notes">
+          <h6><i class="bi bi-chat-dots"></i> Notas</h6>
+          <p>{{ selectedOrder.customer_notes }}</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeOrderModal()">
+          <i class="bi bi-x-lg"></i> Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop fade" [class.show]="showOrderModal" *ngIf="showOrderModal"></div>

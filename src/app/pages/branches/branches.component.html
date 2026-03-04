@@ -1,0 +1,133 @@
+<div class="branches-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">Gestión de Sucursales</h1>
+        <p class="page-subtitle">Administra las sucursales del sistema</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="filters-section">
+    <div class="search-box">
+      <i class="bi bi-search"></i>
+      <input 
+        type="text" 
+        class="form-control" 
+        placeholder="Buscar por nombre, código o ciudad..."
+        [(ngModel)]="searchTerm" 
+        (ngModelChange)="filterBranches()">
+    </div>
+
+    <div class="filter-options">
+      <label class="form-check">
+        <input 
+          type="checkbox" 
+          class="form-check-input" 
+          [(ngModel)]="showInactive"
+          (change)="onShowInactiveChange()">
+        <span class="form-check-label">Mostrar inactivas</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="text-center p-4" *ngIf="loading">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+  </div>
+
+  <!-- Grid de sucursales -->
+  <div class="branches-grid" *ngIf="!loading">
+    <div class="branch-card" *ngFor="let branch of filteredBranches" [class.inactive]="!branch.is_active">
+      <div class="card-header">
+        <div class="branch-info">
+          <div class="branch-icon" [class.inactive]="!branch.is_active">
+            <i class="bi bi-building"></i>
+          </div>
+          <div class="branch-details">
+            <h5 class="branch-name">{{ branch.name }}</h5>
+            <p class="branch-code">Código: {{ branch.code }}</p>
+          </div>
+        </div>
+        <span [class]="getStatusBadgeClass(branch)">
+          {{ getStatusText(branch) }}
+        </span>
+      </div>
+
+      <div class="card-body">
+        <div class="info-row">
+          <i class="bi bi-diagram-3"></i>
+          <span><strong>Franquicia:</strong> {{ branch.franchise_name || 'Sin franquicia' }}</span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-geo-alt"></i>
+          <span>{{ branch.address || 'Sin dirección' }}</span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-pin-map"></i>
+          <span>{{ branch.city }}, {{ branch.state }} - {{ branch.country }}</span>
+        </div>
+        <div class="info-row" *ngIf="branch.postal_code">
+          <i class="bi bi-mailbox"></i>
+          <span>CP: {{ branch.postal_code }}</span>
+        </div>
+        <div class="info-row" *ngIf="branch.phone">
+          <i class="bi bi-telephone"></i>
+          <span>{{ branch.phone }}</span>
+        </div>
+        <div class="info-row" *ngIf="branch.email">
+          <i class="bi bi-envelope"></i>
+          <span>{{ branch.email }}</span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-cart-check"></i>
+          <span>
+            <i class="bi" [ngClass]="branch.accepts_orders ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'"></i>
+            {{ branch.accepts_orders ? 'Acepta pedidos' : 'No acepta pedidos' }}
+          </span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-toggle-on" *ngIf="branch.is_active"></i>
+          <i class="bi bi-toggle-off" *ngIf="!branch.is_active"></i>
+          <span [class.text-success]="branch.is_active" [class.text-danger]="!branch.is_active">
+            {{ branch.is_active ? 'Activa' : 'Inactiva' }}
+          </span>
+        </div>
+        <div class="info-row">
+          <i class="bi bi-calendar-plus"></i>
+          <span>Creada: {{ formatDate(branch.created_at) }}</span>
+        </div>
+      </div>
+
+      <!-- Footer con acciones -->
+      <div class="card-footer" *ngIf="canManage()">
+        <button 
+          class="btn btn-sm" 
+          [class.btn-outline-warning]="branch.is_active"
+          [class.btn-outline-success]="!branch.is_active"
+          (click)="toggleStatus(branch)"
+          [disabled]="togglingId === branch.id"
+          title="{{ branch.is_active ? 'Desactivar' : 'Activar' }} sucursal">
+          <span *ngIf="togglingId !== branch.id">
+            <i class="bi" [ngClass]="branch.is_active ? 'bi-toggle-off' : 'bi-toggle-on'"></i>
+            {{ branch.is_active ? 'Desactivar' : 'Activar' }}
+          </span>
+          <span *ngIf="togglingId === branch.id">
+            <span class="spinner-border spinner-border-sm"></span>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!loading && filteredBranches.length === 0">
+    <i class="bi bi-building"></i>
+    <h3>No se encontraron sucursales</h3>
+    <p>{{ searchTerm ? 'Intenta con otros términos de búsqueda' : 'No hay sucursales registradas' }}</p>
+  </div>
+</div>

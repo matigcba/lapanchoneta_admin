@@ -1,0 +1,433 @@
+<div class="staff-page">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">Gestión de Personal</h1>
+        <p class="page-subtitle">Administra los usuarios del sistema</p>
+      </div>
+      <button class="btn btn-primary" (click)="openModal()"
+        *ngIf="currentUser?.role === 'admin' || currentUser?.role === 'superadmin'">
+        <i class="bi bi-plus-lg"></i>
+        Agregar Usuario
+      </button>
+    </div>
+  </div>
+
+  <!-- Tabs (solo superadmin ve la pestaña de permisos por rol) -->
+  <div class="tabs-section" *ngIf="isSuperadmin()">
+    <button class="tab-btn" [class.active]="activeTab === 'employees'" (click)="setActiveTab('employees')">
+      <i class="bi bi-people"></i> Empleados
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'role_permissions'" (click)="setActiveTab('role_permissions')">
+      <i class="bi bi-shield-lock"></i> Permisos por Rol
+    </button>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- TAB: EMPLEADOS -->
+  <!-- ========================================= -->
+  <div class="tab-content" *ngIf="activeTab === 'employees'">
+    <!-- Filtros -->
+    <div class="filters-section">
+      <div class="search-box">
+        <i class="bi bi-search"></i>
+        <input type="text" class="form-control" placeholder="Buscar por nombre, email o usuario..."
+          [(ngModel)]="searchTerm" (ngModelChange)="filterStaff()">
+      </div>
+
+      <div class="filter-options">
+        <label class="form-check">
+          <input type="checkbox" class="form-check-input" [(ngModel)]="showInactive"
+            (change)="onShowInactiveChange()">
+          <span class="form-check-label">Mostrar inactivos</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="text-center p-4" *ngIf="loading">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+    </div>
+
+    <!-- Lista de personal -->
+    <div class="staff-grid" *ngIf="!loading">
+      <div class="staff-card" *ngFor="let member of filteredStaff">
+        <div class="card-header">
+          <div class="user-info">
+            <div class="user-avatar">
+              <i class="bi bi-person-circle"></i>
+            </div>
+            <div class="user-details">
+              <h5 class="user-name">{{ member.first_name }} {{ member.last_name }}</h5>
+              <p class="user-username">{{ '@' + member.username }}</p>
+            </div>
+          </div>
+          <span [class]="getRoleBadgeClass(member.role)">
+            {{ member.role_display }}
+          </span>
+        </div>
+
+        <div class="card-body">
+          <div class="info-row">
+            <i class="bi bi-envelope"></i>
+            <span>{{ member.email }}</span>
+          </div>
+          <div class="info-row">
+            <i class="bi bi-building"></i>
+            <span>{{ member.branch_name || 'Sin sucursal' }}</span>
+          </div>
+          <div class="info-row">
+            <i class="bi bi-clock-history"></i>
+            <span>Último acceso: {{ formatDate(member.last_login) }}</span>
+          </div>
+          <div class="info-row">
+            <i class="bi bi-toggle-on" *ngIf="member.is_active"></i>
+            <i class="bi bi-toggle-off" *ngIf="!member.is_active"></i>
+            <span [class.text-success]="member.is_active" [class.text-danger]="!member.is_active">
+              {{ member.is_active ? 'Activo' : 'Inactivo' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="card-footer" *ngIf="canEdit(member)">
+          <button class="btn btn-sm btn-outline-primary" (click)="editStaff(member)">
+            <i class="bi bi-pencil"></i> Editar
+          </button>
+          
+          <!-- Botón de permisos -->
+          <button class="btn btn-sm btn-outline-secondary" (click)="openPermissionsModal(member)"
+            *ngIf="canEditPermissions(member)" title="Editar permisos">
+            <i class="bi bi-shield-lock"></i> Permisos
+          </button>
+          
+          <button class="btn btn-sm btn-outline-warning" (click)="toggleStatus(member)"
+            [disabled]="member.id === currentUser?.id">
+            <i class="bi" [ngClass]="member.is_active ? 'bi-toggle-off' : 'bi-toggle-on'"></i>
+            {{ member.is_active ? 'Desactivar' : 'Activar' }}
+          </button>
+          <button class="btn btn-sm btn-outline-danger" (click)="deleteStaff(member)"
+            [disabled]="member.id === currentUser?.id">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="!loading && filteredStaff.length === 0">
+      <i class="bi bi-people"></i>
+      <h3>No se encontraron usuarios</h3>
+      <p>{{ searchTerm ? 'Intenta con otros términos de búsqueda' : 'Agrega el primer usuario' }}</p>
+    </div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- TAB: PERMISOS POR ROL -->
+  <!-- ========================================= -->
+  <div class="tab-content" *ngIf="activeTab === 'role_permissions'">
+    <div class="permissions-container">
+      <div class="permissions-header">
+        <h3>Configurar Permisos por Rol</h3>
+        <p class="text-muted">Define qué módulos puede ver cada rol por defecto</p>
+      </div>
+
+      <!-- Selector de rol -->
+      <div class="role-selector">
+        <label class="form-label">Seleccionar Rol</label>
+        <select class="form-select" [(ngModel)]="selectedRole" (change)="onRoleChange()">
+          <option *ngFor="let role of editableRoles" [value]="role.value">
+            {{ role.label }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Loading -->
+      <div class="text-center p-4" *ngIf="loadingRolePermissions">
+        <div class="spinner-border text-primary" role="status"></div>
+      </div>
+
+      <!-- Lista de permisos -->
+      <div class="permissions-list" *ngIf="!loadingRolePermissions">
+        <div class="permission-item" *ngFor="let perm of rolePermissions">
+          <div class="permission-info">
+            <i class="bi" [ngClass]="'bi-' + perm.icon"></i>
+            <div>
+              <span class="permission-name">{{ perm.name }}</span>
+              <small class="permission-code text-muted">{{ perm.code }}</small>
+            </div>
+          </div>
+          <div class="permission-toggle">
+            <label class="switch">
+              <input type="checkbox" [checked]="perm.can_access" (change)="toggleRolePermission(perm)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Botón guardar -->
+      <div class="permissions-actions" *ngIf="!loadingRolePermissions">
+        <button class="btn btn-primary" (click)="saveRolePermissions()" [disabled]="savingRolePermissions">
+          <span *ngIf="!savingRolePermissions">
+            <i class="bi bi-check-lg"></i> Guardar Cambios
+          </span>
+          <span *ngIf="savingRolePermissions">
+            <span class="spinner-border spinner-border-sm me-2"></span> Guardando...
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- MODAL: EDITAR USUARIO -->
+  <!-- ========================================= -->
+  <div class="modal" [class.show]="showModal" [style.display]="showModal ? 'block' : 'none'" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            {{ editingStaff ? 'Editar Usuario' : 'Nuevo Usuario' }}
+          </h5>
+          <button type="button" class="btn-close" (click)="closeModal()"></button>
+        </div>
+
+        <div class="modal-body">
+          <form>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Nombre *</label>
+                <input type="text" class="form-control" [(ngModel)]="currentStaff.first_name"
+                  name="first_name" required>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label">Apellido *</label>
+                <input type="text" class="form-control" [(ngModel)]="currentStaff.last_name"
+                  name="last_name" required>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Usuario *</label>
+              <input type="text" class="form-control" [(ngModel)]="currentStaff.username" name="username"
+                required [disabled]="editingStaff">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Email *</label>
+              <input type="email" class="form-control" [(ngModel)]="currentStaff.email" name="email"
+                required>
+            </div>
+
+            <div class="mb-3" *ngIf="!editingStaff || showPassword">
+              <label class="form-label">
+                {{ editingStaff ? 'Nueva Contraseña' : 'Contraseña *' }}
+              </label>
+              <input type="password" class="form-control" [(ngModel)]="currentStaff.password"
+                name="password" [required]="!editingStaff">
+              <small class="text-muted" *ngIf="editingStaff">
+                Dejar en blanco para mantener la contraseña actual
+              </small>
+            </div>
+
+            <div class="mb-3" *ngIf="editingStaff && !showPassword">
+              <button type="button" class="btn btn-link p-0" (click)="showPassword = true">
+                Cambiar contraseña
+              </button>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Rol *</label>
+              <select class="form-select" [(ngModel)]="currentStaff.role" name="role" required>
+                <option *ngFor="let role of roles" [value]="role.value">
+                  {{ role.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Sucursales Asignadas *</label>
+              <div class="branches-selector">
+                <div class="branches-grid">
+                  <div class="branch-option" *ngFor="let branch of availableBranches">
+                    <label class="form-check">
+                      <input type="checkbox" class="form-check-input" [value]="branch.id"
+                        [checked]="selectedBranches.includes(branch.id)"
+                        (change)="toggleBranch(branch.id)"
+                        [disabled]="editingStaff && currentUser?.role !== 'superadmin'">
+                      <span class="form-check-label">
+                        {{ branch.name }}
+                        <small class="text-muted d-block">{{ branch.franchise_name }}</small>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="branch-actions mt-2">
+                  <button type="button" class="btn btn-link btn-sm" (click)="selectAllBranches()">
+                    Seleccionar todas
+                  </button>
+                  <span class="text-muted">|</span>
+                  <button type="button" class="btn btn-link btn-sm" (click)="clearBranches()">
+                    Limpiar
+                  </button>
+                </div>
+              </div>
+
+              <small class="text-muted" *ngIf="selectedBranches.length > 0">
+                {{ selectedBranches.length }} sucursal(es) seleccionada(s)
+              </small>
+            </div>
+
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" [(ngModel)]="currentStaff.is_active"
+                name="is_active" id="isActive">
+              <label class="form-check-label" for="isActive">
+                Usuario activo
+              </label>
+            </div>
+          </form>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModal()">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" (click)="saveStaff()" [disabled]="saving">
+            <span *ngIf="!saving">
+              {{ editingStaff ? 'Actualizar' : 'Guardar' }}
+            </span>
+            <span *ngIf="saving">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Guardando...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================= -->
+  <!-- MODAL: PERMISOS INDIVIDUALES -->
+  <!-- ========================================= -->
+  <div class="modal" [class.show]="showPermissionsModal" [style.display]="showPermissionsModal ? 'block' : 'none'" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-shield-lock me-2"></i>
+            Permisos de {{ permissionsStaff?.first_name }} {{ permissionsStaff?.last_name }}
+          </h5>
+          <button type="button" class="btn-close" (click)="closePermissionsModal()"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Info del usuario -->
+          <div class="user-permissions-info">
+            <span class="badge" [class]="getRoleBadgeClass(permissionsStaff?.role)">
+              {{ getRoleLabel(permissionsStaff?.role) }}
+            </span>
+            <span class="text-muted ms-2">{{ permissionsStaff?.email }}</span>
+          </div>
+
+<!-- Toggle usar permisos del rol -->
+<div class="permissions-mode-toggle">
+  <label class="form-check">
+    <input type="checkbox" class="form-check-input" [checked]="useRolePermissions"
+      (change)="toggleUseRolePermissions()">
+    <span class="form-check-label">
+      <strong>Usar permisos del rol ({{ getRoleLabel(permissionsStaff?.role) }})</strong>
+      <small class="d-block text-muted">
+        Si está activo, el usuario tendrá los permisos estándar de su rol
+      </small>
+    </span>
+  </label>
+
+  <!-- Mostrar permisos del rol cuando está activo -->
+  <div class="role-permissions-preview" *ngIf="useRolePermissions && staffPermissions.length > 0">
+    <div class="preview-title">
+      <i class="bi bi-info-circle"></i>
+      <span>Módulos incluidos en el rol <strong>{{ getRoleLabel(permissionsStaff?.role) }}</strong>:</span>
+    </div>
+    <div class="preview-modules">
+      <span class="module-tag allowed" *ngFor="let perm of getActiveRolePermissions()">
+        <i class="bi" [ngClass]="'bi-' + perm.icon"></i>
+        {{ perm.name }}
+      </span>
+    </div>
+    <div class="preview-denied" *ngIf="getDeniedRolePermissions().length > 0">
+      <small class="text-muted">Sin acceso:</small>
+      <span class="module-tag denied" *ngFor="let perm of getDeniedRolePermissions()">
+        {{ perm.name }}
+      </span>
+    </div>
+  </div>
+</div>
+
+          <!-- Loading -->
+          <div class="text-center p-4" *ngIf="loadingPermissions">
+            <div class="spinner-border text-primary" role="status"></div>
+          </div>
+
+          <!-- Lista de permisos -->
+          <div class="permissions-list" *ngIf="!loadingPermissions" [class.disabled]="useRolePermissions">
+            <div class="permissions-list-header">
+              <span>Módulo</span>
+              <span>Rol</span>
+              <span>Acceso</span>
+            </div>
+            
+            <div class="permission-item" *ngFor="let perm of staffPermissions"
+              [class.custom]="perm.is_custom">
+              <div class="permission-info">
+                <i class="bi" [ngClass]="'bi-' + perm.icon"></i>
+                <span class="permission-name">{{ perm.name }}</span>
+              </div>
+              
+              <div class="permission-role-value">
+                <i class="bi" [ngClass]="perm.role_access ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger'"></i>
+              </div>
+              
+              <div class="permission-toggle">
+                <label class="switch">
+                  <input type="checkbox" [checked]="perm.can_access" 
+                    (change)="toggleStaffPermission(perm)"
+                    [disabled]="useRolePermissions">
+                  <span class="slider"></span>
+                </label>
+                <span class="custom-badge" *ngIf="perm.is_custom">Personalizado</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-warning" (click)="resetToRolePermissions()"
+            *ngIf="!useRolePermissions">
+            <i class="bi bi-arrow-counterclockwise"></i> Resetear a rol
+          </button>
+          <button type="button" class="btn btn-secondary" (click)="closePermissionsModal()">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary" (click)="saveStaffPermissions()" 
+            [disabled]="savingPermissions">
+            <span *ngIf="!savingPermissions">
+              <i class="bi bi-check-lg"></i> Guardar
+            </span>
+            <span *ngIf="savingPermissions">
+              <span class="spinner-border spinner-border-sm me-2"></span> Guardando...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal backdrop -->
+  <div class="modal-backdrop fade" [class.show]="showModal || showPermissionsModal" 
+    [style.display]="(showModal || showPermissionsModal) ? 'block' : 'none'"></div>
+</div>

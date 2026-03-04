@@ -1,0 +1,596 @@
+<div class="stock-page">
+  <!-- Header moderno con gradiente -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">Gestión de Stock</h1>
+        <p class="page-subtitle">Control de inventario y movimientos de productos</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" (click)="loadData()" [disabled]="loading">
+          <i class="bi bi-arrow-clockwise" [class.spinning]="loading"></i>
+          <span class="d-none d-md-inline ms-1">Actualizar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumen de stock -->
+  <div class="stats-grid">
+    <div class="stat-card card-danger">
+      <div class="stat-icon">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+      </div>
+      <div class="stat-content">
+        <h3>{{ criticalStock.length }}</h3>
+        <p>Stock Crítico</p>
+        <small>Productos/Ingredientes bajo mínimo</small>
+      </div>
+    </div>
+
+    <div class="stat-card card-warning">
+      <div class="stat-icon">
+        <i class="bi bi-exclamation-circle-fill"></i>
+      </div>
+      <div class="stat-content">
+        <h3>{{ lowStock.length }}</h3>
+        <p>Stock Bajo</p>
+        <small>Requieren atención</small>
+      </div>
+    </div>
+
+    <div class="stat-card card-success">
+      <div class="stat-icon">
+        <i class="bi bi-check-circle-fill"></i>
+      </div>
+      <div class="stat-content">
+        <h3>{{ normalStock.length }}</h3>
+        <p>Stock Normal</p>
+        <small>Nivel adecuado</small>
+      </div>
+    </div>
+
+    <div class="stat-card card-info">
+      <div class="stat-icon">
+        <i class="bi bi-box-seam"></i>
+      </div>
+      <div class="stat-content">
+        <h3>{{ products.length + ingredients.length }}</h3>
+        <p>Total Items</p>
+        <small>{{ products.length }} productos · {{ ingredients.length }} ingredientes</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <ul class="nav nav-tabs">
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'products'" (click)="changeTab('products')">
+          <i class="bi bi-box-seam me-2"></i>
+          Productos
+          <span class="badge bg-secondary ms-1">{{ products.length }}</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'ingredients'" (click)="changeTab('ingredients')">
+          <i class="bi bi-egg-fried me-2"></i>
+          Ingredientes
+          <span class="badge bg-secondary ms-1">{{ ingredients.length }}</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'movements'" (click)="changeTab('movements')">
+          <i class="bi bi-arrow-left-right me-2"></i>
+          Movimientos
+          <span class="badge bg-secondary ms-1">{{ movements.length }}</span>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- TAB: PRODUCTOS -->
+  <!-- ========================================== -->
+  <div class="content-card" *ngIf="activeTab === 'products'">
+    <div class="card-header-custom">
+      <h5>
+        <i class="bi bi-box-seam me-2"></i>
+        Stock de Productos
+      </h5>
+      <div class="header-filters">
+        <div class="filter-group">
+          <select class="form-select form-select-sm" [(ngModel)]="productTypeFilter" (change)="filterProducts()">
+            <option value="all">Todos los productos</option>
+            <option value="simple">Solo simples (ajustables)</option>
+            <option value="recipe">Solo con receta (automático)</option>
+          </select>
+        </div>
+        <div class="search-box">
+          <i class="bi bi-search"></i>
+          <input type="text" class="form-control" placeholder="Buscar producto..." 
+                 [(ngModel)]="searchTerm" (ngModelChange)="filterProducts()">
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body-custom">
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Categoría</th>
+              <th>Tipo</th>
+              <th>Stock Actual</th>
+              <th>Stock Mínimo</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let product of filteredProducts">
+              <td>
+                <div class="item-name">
+                  <strong>{{ product.name }}</strong>
+                </div>
+              </td>
+              <td>
+                <span class="category-badge">{{ product.category_name || '-' }}</span>
+              </td>
+              <td>
+                <span class="type-badge" [class.recipe]="product.has_recipe" [class.simple]="!product.has_recipe">
+                  <i class="bi" [ngClass]="product.has_recipe ? 'bi-egg-fried' : 'bi-box-seam'"></i>
+                  {{ product.has_recipe ? 'Con receta' : 'Simple' }}
+                </span>
+              </td>
+              <td>
+                <div class="stock-display">
+                  <strong [class.text-danger]="getStockStatus(product) === 'critical'"
+                          [class.text-warning]="getStockStatus(product) === 'low'"
+                          [class.text-success]="getStockStatus(product) === 'normal'">
+                    {{ product.stock || 0 }}
+                  </strong>
+                  <i class="bi bi-calculator-fill text-info ms-1" 
+                     *ngIf="product.has_recipe" 
+                     title="Stock calculado automáticamente"></i>
+                </div>
+              </td>
+              <td>{{ product.min_stock || 0 }}</td>
+              <td>
+                <span class="badge status-badge" 
+                      [class.bg-danger]="getStockStatus(product) === 'critical'"
+                      [class.bg-warning]="getStockStatus(product) === 'low'"
+                      [class.bg-success]="getStockStatus(product) === 'normal'">
+                  <i class="bi me-1" 
+                     [class.bi-exclamation-triangle]="getStockStatus(product) === 'critical'"
+                     [class.bi-exclamation-circle]="getStockStatus(product) === 'low'"
+                     [class.bi-check-circle]="getStockStatus(product) === 'normal'"></i>
+                  {{ getStockStatusLabel(product) }}
+                </span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <!-- Botón Ajustar: SOLO para productos simples -->
+                  <button class="btn btn-sm btn-primary me-1" 
+                          *ngIf="!product.has_recipe"
+                          (click)="adjustStock(product, 'product')" 
+                          title="Ajustar stock">
+                    <i class="bi bi-arrow-up-down"></i>
+                    <span class="d-none d-lg-inline ms-1">Ajustar</span>
+                  </button>
+                  
+                  <!-- Info para productos con receta -->
+                  <span class="auto-badge" *ngIf="product.has_recipe" title="Stock calculado por receta">
+                    <i class="bi bi-info-circle"></i>
+                    <span class="d-none d-lg-inline ms-1">Automático</span>
+                  </span>
+                  
+                  <!-- Botón Historial -->
+                  <button class="btn btn-sm btn-outline-secondary" 
+                          (click)="viewHistory(product, 'product')" 
+                          title="Ver historial">
+                    <i class="bi bi-clock-history"></i>
+                    <span class="d-none d-lg-inline ms-1">Historial</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" *ngIf="filteredProducts.length === 0">
+        <i class="bi bi-inbox"></i>
+        <h4>No hay productos</h4>
+        <p>No se encontraron productos con los filtros aplicados</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- TAB: INGREDIENTES -->
+  <!-- ========================================== -->
+  <div class="content-card" *ngIf="activeTab === 'ingredients'">
+    <div class="card-header-custom">
+      <h5>
+        <i class="bi bi-egg-fried me-2"></i>
+        Stock de Ingredientes
+      </h5>
+      <div class="header-filters">
+        <div class="search-box">
+          <i class="bi bi-search"></i>
+          <input type="text" class="form-control" placeholder="Buscar ingrediente..." 
+                 [(ngModel)]="ingredientSearchTerm" (ngModelChange)="filterIngredients()">
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body-custom">
+      <!-- Alerta informativa -->
+      <div class="alert alert-info mb-3">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Importante:</strong> Al ajustar el stock de ingredientes, se recalculará automáticamente 
+        el stock de todos los productos que los usan en sus recetas.
+      </div>
+
+      <div class="table-responsive">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Ingrediente</th>
+              <th>Unidad</th>
+              <th>Costo</th>
+              <th>Stock Actual</th>
+              <th>Stock Mínimo</th>
+              <th>Estado</th>
+              <th>Usado en</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let ingredient of filteredIngredients">
+              <td>
+                <div class="item-name">
+                  <strong>{{ ingredient.name }}</strong>
+                </div>
+              </td>
+              <td>
+                <span class="unit-badge">{{ ingredient.unit || '-' }}</span>
+              </td>
+              <td>
+                <span class="cost-value">${{ ingredient.cost | number:'1.2-2' }}</span>
+              </td>
+              <td>
+                <strong [class.text-danger]="getStockStatus(ingredient) === 'critical'"
+                        [class.text-warning]="getStockStatus(ingredient) === 'low'"
+                        [class.text-success]="getStockStatus(ingredient) === 'normal'">
+                  {{ ingredient.stock || 0 }}
+                </strong>
+              </td>
+              <td>{{ ingredient.min_stock || 0 }}</td>
+              <td>
+                <span class="badge status-badge" 
+                      [class.bg-danger]="getStockStatus(ingredient) === 'critical'"
+                      [class.bg-warning]="getStockStatus(ingredient) === 'low'"
+                      [class.bg-success]="getStockStatus(ingredient) === 'normal'">
+                  <i class="bi me-1" 
+                     [class.bi-exclamation-triangle]="getStockStatus(ingredient) === 'critical'"
+                     [class.bi-exclamation-circle]="getStockStatus(ingredient) === 'low'"
+                     [class.bi-check-circle]="getStockStatus(ingredient) === 'normal'"></i>
+                  {{ getStockStatusLabel(ingredient) }}
+                </span>
+              </td>
+              <td>
+                <span class="usage-badge" *ngIf="ingredient.usage_count > 0">
+                  {{ ingredient.usage_count }} producto(s)
+                </span>
+                <span class="usage-badge unused" *ngIf="!ingredient.usage_count">
+                  Sin usar
+                </span>
+              </td>
+              <td>
+                <div class="action-buttons">
+                  <button class="btn btn-sm btn-primary me-1" 
+                          (click)="adjustStock(ingredient, 'ingredient')" 
+                          title="Ajustar stock">
+                    <i class="bi bi-arrow-up-down"></i>
+                    <span class="d-none d-lg-inline ms-1">Ajustar</span>
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary" 
+                          (click)="viewHistory(ingredient, 'ingredient')" 
+                          title="Ver historial">
+                    <i class="bi bi-clock-history"></i>
+                    <span class="d-none d-lg-inline ms-1">Historial</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" *ngIf="filteredIngredients.length === 0">
+        <i class="bi bi-inbox"></i>
+        <h4>No hay ingredientes</h4>
+        <p>No se encontraron ingredientes con los filtros aplicados</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- TAB: MOVIMIENTOS -->
+  <!-- ========================================== -->
+  <div class="content-card" *ngIf="activeTab === 'movements'">
+    <div class="card-header-custom">
+      <h5>
+        <i class="bi bi-arrow-left-right me-2"></i>
+        Historial de Movimientos
+      </h5>
+      <div class="header-filters">
+        <div class="filter-group">
+          <select class="form-select form-select-sm" [(ngModel)]="movementTypeFilter" (change)="filterMovements()">
+            <option value="all">Todos los tipos</option>
+            <option value="product">Solo productos</option>
+            <option value="ingredient">Solo ingredientes</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <select class="form-select form-select-sm" [(ngModel)]="movementFilter" (change)="filterMovements()">
+            <option value="all">Todos los movimientos</option>
+            <option value="entrada">Entradas</option>
+            <option value="salida">Salidas</option>
+            <option value="ajuste">Ajustes</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-body-custom">
+      <div class="table-responsive" *ngIf="filteredMovements.length > 0">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo Item</th>
+              <th>Item</th>
+              <th>Movimiento</th>
+              <th>Cantidad</th>
+              <th>Stock Anterior</th>
+              <th>Stock Nuevo</th>
+              <th>Motivo</th>
+              <th>Usuario</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let movement of filteredMovements">
+              <td>
+                <div class="date-cell">
+                  <span class="date">{{ movement.created_at | date:'dd/MM/yyyy' }}</span>
+                  <span class="time">{{ movement.created_at | date:'HH:mm' }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="item-type-badge" [class.product]="movement.item_type === 'product'" 
+                      [class.ingredient]="movement.item_type === 'ingredient'">
+                  <i class="bi" [ngClass]="movement.item_type === 'product' ? 'bi-box-seam' : 'bi-egg-fried'"></i>
+                  {{ movement.item_type === 'product' ? 'Producto' : 'Ingrediente' }}
+                </span>
+              </td>
+              <td>
+                <strong>{{ movement.item_name }}</strong>
+              </td>
+              <td>
+                <span class="movement-badge" [class]="movement.movement_type">
+                  <i [class]="getMovementIcon(movement)"></i>
+                  {{ getMovementLabel(movement.movement_type) }}
+                </span>
+              </td>
+              <td>
+                <strong class="quantity" [class.positive]="movement.movement_type === 'entrada'"
+                        [class.negative]="movement.movement_type === 'salida'">
+                  {{ movement.movement_type === 'entrada' ? '+' : movement.movement_type === 'salida' ? '-' : '±' }}{{ movement.quantity }}
+                </strong>
+              </td>
+              <td>{{ movement.previous_stock }}</td>
+              <td><strong>{{ movement.new_stock }}</strong></td>
+              <td>
+                <small class="reason-text">{{ movement.reason || '-' }}</small>
+              </td>
+              <td>
+                <span class="user-badge">
+                  <i class="bi bi-person-circle me-1"></i>
+                  {{ movement.admin_name || 'Sistema' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" *ngIf="filteredMovements.length === 0">
+        <i class="bi bi-inbox"></i>
+        <h4>No hay movimientos</h4>
+        <p>No hay movimientos registrados con los filtros aplicados</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: AJUSTE DE STOCK -->
+<!-- ========================================== -->
+<div class="modal" [class.show]="showAdjustModal" [style.display]="showAdjustModal ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-arrow-up-down me-2"></i>
+          Ajustar Stock - {{ selectedItem?.name }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeAdjustModal()"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Info del item -->
+        <div class="item-info-card mb-3">
+          <div class="info-row">
+            <span class="label">Tipo:</span>
+            <span class="value">
+              <i class="bi" [ngClass]="selectedItemType === 'product' ? 'bi-box-seam' : 'bi-egg-fried'"></i>
+              {{ selectedItemType === 'product' ? 'Producto' : 'Ingrediente' }}
+            </span>
+          </div>
+          <div class="info-row" *ngIf="selectedItemType === 'ingredient' && selectedItem?.unit">
+            <span class="label">Unidad:</span>
+            <span class="value">{{ selectedItem.unit }}</span>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Stock Actual</label>
+          <input type="text" class="form-control" [value]="selectedItem?.stock || 0" readonly>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Tipo de Ajuste</label>
+          <div class="adjustment-type-buttons">
+            <button type="button" class="type-btn" [class.active]="adjustmentType === 'add'" 
+                    (click)="adjustmentType = 'add'">
+              <i class="bi bi-plus-circle"></i>
+              Entrada (+)
+            </button>
+            <button type="button" class="type-btn" [class.active]="adjustmentType === 'remove'" 
+                    (click)="adjustmentType = 'remove'">
+              <i class="bi bi-dash-circle"></i>
+              Salida (-)
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Cantidad</label>
+          <input type="number" class="form-control" [(ngModel)]="adjustmentQuantity" min="0.01" step="0.01"
+                 placeholder="Ingrese la cantidad">
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Motivo *</label>
+          <textarea class="form-control" [(ngModel)]="adjustmentReason" rows="2"
+                    placeholder="Ej: Reposición de inventario, Ajuste por inventario físico, Merma, etc." 
+                    required></textarea>
+        </div>
+
+        <!-- Preview del resultado -->
+        <div class="result-preview" [class.add]="adjustmentType === 'add'" [class.remove]="adjustmentType === 'remove'">
+          <div class="preview-icon">
+            <i class="bi" [ngClass]="adjustmentType === 'add' ? 'bi-arrow-up' : 'bi-arrow-down'"></i>
+          </div>
+          <div class="preview-content">
+            <span class="preview-label">Stock después del ajuste:</span>
+            <span class="preview-value">{{ getNewStock() }}</span>
+          </div>
+        </div>
+
+        <!-- Alerta para ingredientes -->
+        <div class="alert alert-warning mt-3" *ngIf="selectedItemType === 'ingredient' && selectedItem?.usage_count > 0">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          <strong>Nota:</strong> Este ingrediente es usado en {{ selectedItem.usage_count }} producto(s) con receta. 
+          Al ajustar su stock, se recalculará automáticamente el stock de esos productos.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeAdjustModal()">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" (click)="confirmAdjustment()"
+                [disabled]="!adjustmentQuantity || adjustmentQuantity <= 0 || !adjustmentReason?.trim() || saving">
+          <span *ngIf="!saving">
+            <i class="bi bi-check-lg"></i> Confirmar Ajuste
+          </span>
+          <span *ngIf="saving">
+            <span class="spinner-border spinner-border-sm me-1"></span> Guardando...
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================== -->
+<!-- MODAL: HISTORIAL -->
+<!-- ========================================== -->
+<div class="modal" [class.show]="showHistoryModal" [style.display]="showHistoryModal ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-clock-history me-2"></i>
+          Historial - {{ selectedItem?.name }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeHistoryModal()"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive" *ngIf="itemHistory.length > 0">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Movimiento</th>
+                <th>Cantidad</th>
+                <th>Stock Anterior</th>
+                <th>Stock Nuevo</th>
+                <th>Motivo</th>
+                <th>Usuario</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let movement of itemHistory">
+                <td>
+                  <div class="date-cell">
+                    <span class="date">{{ movement.created_at | date:'dd/MM/yyyy' }}</span>
+                    <span class="time">{{ movement.created_at | date:'HH:mm' }}</span>
+                  </div>
+                </td>
+                <td>
+                  <span class="movement-badge" [class]="movement.movement_type">
+                    <i [class]="getMovementIcon(movement)"></i>
+                    {{ getMovementLabel(movement.movement_type) }}
+                  </span>
+                </td>
+                <td>
+                  <strong class="quantity" [class.positive]="movement.movement_type === 'entrada'"
+                          [class.negative]="movement.movement_type === 'salida'">
+                    {{ movement.movement_type === 'entrada' ? '+' : movement.movement_type === 'salida' ? '-' : '±' }}{{ movement.quantity }}
+                  </strong>
+                </td>
+                <td>{{ movement.previous_stock }}</td>
+                <td><strong>{{ movement.new_stock }}</strong></td>
+                <td><small>{{ movement.reason || '-' }}</small></td>
+                <td>
+                  <span class="user-badge">
+                    <i class="bi bi-person-circle me-1"></i>
+                    {{ movement.admin_name || 'Sistema' }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="alert alert-info" *ngIf="itemHistory.length === 0">
+          <i class="bi bi-info-circle me-2"></i>
+          No hay movimientos registrados para este {{ selectedItemType === 'product' ? 'producto' : 'ingrediente' }}.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeHistoryModal()">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showAdjustModal || showHistoryModal"
+     [style.display]="showAdjustModal || showHistoryModal ? 'block' : 'none'"></div>
