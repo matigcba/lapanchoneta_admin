@@ -425,4 +425,39 @@ updateIngredientStock(ingredientId: number, quantity: number, movementType: stri
 
     return this.http.delete(`${this.apiUrl}/toppings/${id}`, { params });
   }
+
+
+
+// ========== TRANSFERENCIAS DE STOCK ==========
+
+/**
+ * Transferir stock de una sucursal a otra
+ */
+transferStock(data: {
+  from_branch_id: number;
+  to_branch_id: number;
+  item_type: 'product' | 'ingredient';
+  item_id: number;
+  quantity: number;
+  reason: string;
+}): Observable<any> {
+  return this.http.post<any>(`${this.apiUrl}/stock/transfer`, data);
+}
+
+/**
+ * Obtener historial de transferencias
+ */
+getStockTransfers(branchId?: number, itemType?: string): Observable<any> {
+  let params = new HttpParams();
+  
+  if (branchId) {
+    params = params.set('branch_id', branchId.toString());
+  }
+  if (itemType && itemType !== 'all') {
+    params = params.set('item_type', itemType);
+  }
+  
+  return this.http.get<any>(`${this.apiUrl}/stock/transfers`, { params });
+}
+
 }

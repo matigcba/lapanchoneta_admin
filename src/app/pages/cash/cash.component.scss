@@ -1650,3 +1650,251 @@ $border-radius-xs: 8px;
   
   i { display: none; }
 }
+
+// ============================================
+// AGREGAR ESTOS ESTILOS AL cash.component.scss
+// (al final del archivo existente)
+// ============================================
+
+// ========== SELECTOR DE SUCURSAL EN CAJA ==========
+
+.cash-branch-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 12px;
+  transition: all 0.2s;
+
+  &:hover, &:focus-within {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  }
+
+  i {
+    color: #6366f1;
+    font-size: 1.1rem;
+  }
+
+  select {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #1e293b;
+    cursor: pointer;
+    min-width: 180px;
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+// ========== DESGLOSE POR SUCURSAL ==========
+
+.branch-breakdown-section {
+  margin-bottom: 20px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.branch-breakdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+
+  &:hover {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  }
+
+  .breakdown-title {
+    display: flex;
+    align-items: center;
+
+    h4 {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #1e293b;
+    }
+  }
+
+  > i {
+    color: #64748b;
+    font-size: 1rem;
+  }
+}
+
+.branch-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 16px 20px 20px;
+}
+
+.branch-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.2s;
+
+  &:hover {
+    border-color: #6366f1;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  }
+}
+
+.branch-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+
+  h5 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .branch-balance {
+    font-size: 1rem;
+    font-weight: 700;
+
+    &.positive { color: #22c55e; }
+    &.negative { color: #ef4444; }
+  }
+}
+
+.branch-card-body {
+  padding: 12px 16px;
+}
+
+.branch-stats-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  .branch-stat {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    text-align: center;
+
+    &.income {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+
+    &.expense {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    .stat-label {
+      display: block;
+      font-size: 0.7rem;
+      color: #64748b;
+      margin-bottom: 2px;
+    }
+
+    .stat-value {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+  }
+}
+
+.branch-methods {
+  margin-bottom: 8px;
+
+  .method-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.8rem;
+
+    i {
+      font-size: 0.85rem;
+      width: 18px;
+      text-align: center;
+    }
+
+    span {
+      flex: 1;
+      color: #64748b;
+    }
+
+    strong {
+      color: #1e293b;
+    }
+  }
+}
+
+.branch-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0 0;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 4px;
+  font-size: 0.85rem;
+
+  span {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  strong {
+    color: #6366f1;
+    font-size: 0.95rem;
+  }
+}
+
+// Badge para nombre de sucursal en tabla
+.branch-name-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+// ========== RESPONSIVE ==========
+
+@media (max-width: 768px) {
+  .cash-branch-selector {
+    min-width: 0;
+    
+    select {
+      min-width: 120px;
+      font-size: 0.8rem;
+    }
+  }
+
+  .branch-breakdown-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

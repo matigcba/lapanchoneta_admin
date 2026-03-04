@@ -17,19 +17,23 @@
           </button>
         </div>
 
-        <!-- Branch Selector con mejor diseño (Desktop) -->
-        <!-- Branch Selector con mejor diseño (Desktop) -->
+        <!-- Branch Selector (Desktop) -->
         <div class="branch-selector-container">
           <i class="bi bi-building"></i>
 
-          <!-- Si es página global -->
-          <span class="branch-all-label" *ngIf="isGlobalPage()">
+          <!-- Si es página global (cupones, franquicias, sucursales) -->
+          <span class="branch-all-label" *ngIf="isGlobalPage() && selectedBranchId !== 'all'">
             Todas las sucursales
           </span>
 
-          <!-- Selector normal -->
-          <select *ngIf="!isGlobalPage()" [(ngModel)]="selectedBranchId" (change)="onBranchChange()"
-            class="branch-select">
+          <!-- Selector normal con opción "Todas" condicional -->
+          <select *ngIf="!isGlobalPage() || selectedBranchId === 'all'" 
+                  [(ngModel)]="selectedBranchId" (change)="onBranchChange()"
+                  class="branch-select">
+            <!-- Opción "Todas las sucursales" solo en páginas que lo soportan -->
+            <option value="all" *ngIf="showAllBranchesOption()">
+              📊 Todas las sucursales
+            </option>
             <option *ngFor="let branch of availableBranches" [value]="branch.id">
               {{ branch.name }} - {{ branch.city }}
             </option>
@@ -49,12 +53,16 @@
           <!-- Branch Selector para móvil -->
           <li class="mobile-branch-selector">
             <label>Sucursal</label>
-            <div class="branch-select-wrapper" [class.disabled]="isGlobalPage()">
+            <div class="branch-select-wrapper" [class.disabled]="isGlobalPage() && selectedBranchId !== 'all'">
               <i class="bi bi-building"></i>
-              <span class="branch-all-text" *ngIf="isGlobalPage()">
+              <span class="branch-all-text" *ngIf="isGlobalPage() && selectedBranchId !== 'all'">
                 Todas las sucursales
               </span>
-              <select *ngIf="!isGlobalPage()" [(ngModel)]="selectedBranchId" (change)="onBranchChange()">
+              <select *ngIf="!isGlobalPage() || selectedBranchId === 'all'" 
+                      [(ngModel)]="selectedBranchId" (change)="onBranchChange()">
+                <option value="all" *ngIf="showAllBranchesOption()">
+                  📊 Todas las sucursales
+                </option>
                 <option *ngFor="let branch of availableBranches" [value]="branch.id">
                   {{ branch.name }} - {{ branch.city }}
                 </option>
@@ -115,22 +123,18 @@
             </div>
           </li>
 
-          <!-- Grupo: Reportes
+          <!-- Grupo: Reportes -->
           <li class="nav-group" [class.expanded]="expandedGroups['reportes']"
-            *ngIf="canAccessModule('report_sales') || canAccessModule('report_orders')">
+            *ngIf="canAccessModule('report_sales')">
             <span class="nav-group-title" (click)="toggleGroup('reportes')">Reportes</span>
             <div class="nav-dropdown">
               <a routerLink="/report-sales" routerLinkActive="active" (click)="closeMobileMenu()"
                 *ngIf="canAccessModule('report_sales')">
-                <i class="bi bi-cart-check"></i> Ventas
-              </a>
-              <a routerLink="/report-orders" routerLinkActive="active" (click)="closeMobileMenu()"
-                *ngIf="canAccessModule('report_orders')">
-                <i class="bi bi-file-earmark-text"></i> Pedidos
+                <i class="bi bi-graph-up"></i> Ventas
               </a>
             </div>
           </li>
- -->
+
           <!-- Grupo: App Móvil -->
           <li class="nav-group" [class.expanded]="expandedGroups['app']"
             *ngIf="canAccessModule('coupons') || canAccessModule('points')">

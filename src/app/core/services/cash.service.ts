@@ -16,7 +16,6 @@ export class CashService {
         return branchId ? parseInt(branchId) : null;
     }
 
-    // Método para establecer la sucursal actual
     setCurrentBranch(branchId: number): void {
         localStorage.setItem('selectedBranchId', branchId.toString());
     }
@@ -25,13 +24,13 @@ export class CashService {
         return this.getCurrentBranchId();
     }
 
-    // ============================================
-    // MÉTODOS DE CAJA
-    // ============================================
-
-    // Obtener transacciones con filtros
-    getCashTransactions(filters: any = {}): Observable<any> {
-        let params = new HttpParams().set('branch_id', this.getCurrentBranch().toString());
+    /**
+     * Obtener transacciones con filtros
+     * branchOverride: si es 'all', trae de todas las sucursales
+     */
+    getCashTransactions(filters: any = {}, branchOverride?: string | number): Observable<any> {
+        const branchValue = branchOverride || this.getCurrentBranch();
+        let params = new HttpParams().set('branch_id', branchValue!.toString());
 
         Object.keys(filters).forEach(key => {
             if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') {
@@ -42,15 +41,13 @@ export class CashService {
         return this.http.get<any>(`${this.apiUrl}/cash/transactions`, { params });
     }
 
-    // Obtener detalle de una transacción
     getCashTransactionById(id: number): Observable<any> {
-        const params = new HttpParams().set('branch_id', this.getCurrentBranch().toString());
+        const params = new HttpParams().set('branch_id', this.getCurrentBranch()!.toString());
         return this.http.get<any>(`${this.apiUrl}/cash/transactions/${id}`, { params });
     }
 
-    // Obtener sesiones de caja
     getCashSessions(filters: any = {}): Observable<any> {
-        let params = new HttpParams().set('branch_id', this.getCurrentBranch().toString());
+        let params = new HttpParams().set('branch_id', this.getCurrentBranch()!.toString());
 
         Object.keys(filters).forEach(key => {
             if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') {
@@ -61,15 +58,13 @@ export class CashService {
         return this.http.get<any>(`${this.apiUrl}/cash/sessions`, { params });
     }
 
-    // Obtener sesión actual abierta
     getCurrentCashSession(): Observable<any> {
-        const params = new HttpParams().set('branch_id', this.getCurrentBranch().toString());
+        const params = new HttpParams().set('branch_id', this.getCurrentBranch()!.toString());
         return this.http.get<any>(`${this.apiUrl}/cash/sessions/current`, { params });
     }
 
-    // Obtener resumen de caja
     getCashSummary(filters: any = {}): Observable<any> {
-        let params = new HttpParams().set('branch_id', this.getCurrentBranch().toString());
+        let params = new HttpParams().set('branch_id', this.getCurrentBranch()!.toString());
 
         Object.keys(filters).forEach(key => {
             if (filters[key] !== null && filters[key] !== undefined && filters[key] !== '') {
@@ -80,7 +75,6 @@ export class CashService {
         return this.http.get<any>(`${this.apiUrl}/cash/summary`, { params });
     }
 
-    // Obtener tipos de transacción
     getCashTransactionTypes(): Observable<any> {
         return this.http.get<any>(`${this.apiUrl}/cash/transaction-types`);
     }

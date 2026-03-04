@@ -4,7 +4,6 @@
     <div class="header-content">
       <div>
         <h1 class="page-title">
-          <i class="bi bi-safe me-2"></i>
           Control de Caja
         </h1>
         <p class="page-subtitle">Gestiona todas las transacciones de la sucursal</p>
@@ -200,6 +199,73 @@
   </div>
 </div>
 
+  <!-- ✅ NUEVO: Desglose por Sucursal (solo cuando es multi-branch) -->
+  <div class="branch-breakdown-section" *ngIf="isMultiBranch && branchSummaries.length > 0">
+    <div class="branch-breakdown-header" (click)="showBranchBreakdown = !showBranchBreakdown">
+      <div class="breakdown-title">
+        <i class="bi bi-building me-2"></i>
+        <h4>Desglose por Sucursal</h4>
+        <span class="badge bg-primary ms-2">{{ branchSummaries.length }}</span>
+      </div>
+      <i class="bi" [ngClass]="showBranchBreakdown ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+    </div>
+
+    <div class="branch-breakdown-grid" *ngIf="showBranchBreakdown">
+      <div class="branch-card" *ngFor="let branch of branchSummaries">
+        <div class="branch-card-header">
+          <h5>
+            <i class="bi bi-building me-1"></i>
+            {{ branch.branch_name }}
+          </h5>
+          <span class="branch-balance" [class.positive]="branch.balance >= 0" [class.negative]="branch.balance < 0">
+            ${{ branch.balance | number:'1.2-2' }}
+          </span>
+        </div>
+
+        <div class="branch-card-body">
+          <div class="branch-stats-row">
+            <div class="branch-stat income">
+              <span class="stat-label">Entradas</span>
+              <span class="stat-value">${{ branch.total_in | number:'1.2-2' }}</span>
+            </div>
+            <div class="branch-stat expense">
+              <span class="stat-label">Salidas</span>
+              <span class="stat-value">${{ branch.total_out | number:'1.2-2' }}</span>
+            </div>
+          </div>
+
+          <div class="branch-methods">
+            <div class="method-row" *ngIf="branch.cash_total > 0">
+              <i class="bi bi-cash-stack text-success"></i>
+              <span>Efectivo</span>
+              <strong>${{ branch.cash_total | number:'1.2-2' }}</strong>
+            </div>
+            <div class="method-row" *ngIf="branch.card_total > 0">
+              <i class="bi bi-credit-card text-primary"></i>
+              <span>Tarjeta</span>
+              <strong>${{ branch.card_total | number:'1.2-2' }}</strong>
+            </div>
+            <div class="method-row" *ngIf="branch.transfer_total > 0">
+              <i class="bi bi-bank text-info"></i>
+              <span>Transferencia</span>
+              <strong>${{ branch.transfer_total | number:'1.2-2' }}</strong>
+            </div>
+            <div class="method-row" *ngIf="branch.qr_total > 0">
+              <i class="bi bi-qr-code text-warning"></i>
+              <span>QR</span>
+              <strong>${{ branch.qr_total | number:'1.2-2' }}</strong>
+            </div>
+          </div>
+
+          <div class="branch-total-row">
+            <span>Total Ventas</span>
+            <strong>${{ getBranchSalesTotal(branch) | number:'1.2-2' }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Filtros -->
   <div class="filters-section">
     <div class="filters-row">
@@ -250,14 +316,14 @@
       </div>
 
       <!-- Filtro por Caja -->
-<div class="filter-group">
-  <label>Caja</label>
-  <select class="form-input-modern" [(ngModel)]="filters.session_status" (change)="applyFilters()">
-    <option value="">Todas las cajas</option>
-    <option value="open">🟢 Cajas abiertas</option>
-    <option value="closed">🔴 Cajas cerradas</option>
-  </select>
-</div>
+      <div class="filter-group">
+        <label>Caja</label>
+        <select class="form-input-modern" [(ngModel)]="filters.session_status" (change)="applyFilters()">
+          <option value="">Todas las cajas</option>
+          <option value="open">🟢 Cajas abiertas</option>
+          <option value="closed">🔴 Cajas cerradas</option>
+        </select>
+      </div>
 
       <!-- Método de pago -->
       <div class="filter-group">
@@ -353,6 +419,8 @@
         <thead>
           <tr>
             <th class="th-id">ID</th>
+            <!-- ✅ NUEVO: Columna Sucursal solo en multi-branch -->
+            <th class="th-branch" *ngIf="isMultiBranch">Sucursal</th>
             <th class="th-date">Fecha/Hora</th>
             <th class="th-type">Tipo</th>
             <th class="th-description">Descripción</th>
@@ -369,6 +437,10 @@
               class="table-row">
             <td>
               <span class="id-badge">#{{ transaction.id }}</span>
+            </td>
+            <!-- ✅ NUEVO: Celda Sucursal solo en multi-branch -->
+            <td *ngIf="isMultiBranch">
+              <span class="branch-name-badge">{{ transaction.branch_name || '-' }}</span>
             </td>
             <td>
               <div class="date-cell">
@@ -519,6 +591,12 @@
             </span>
           </div>
 
+          <!-- ✅ NUEVO: Sucursal en el modal -->
+          <div class="detail-item" *ngIf="isMultiBranch && selectedTransaction.branch_name">
+            <label>Sucursal</label>
+            <span>{{ selectedTransaction.branch_name }}</span>
+          </div>
+
           <div class="detail-item">
             <label>Usuario</label>
             <span>{{ selectedTransaction.admin_name || selectedTransaction.admin_username || '-' }}</span>
@@ -546,7 +624,6 @@
             <span>{{ selectedTransaction.notes }}</span>
           </div>
 
-          <!-- Info de orden relacionada -->
           <div class="detail-item full-width" *ngIf="selectedTransaction.order_id">
             <label>Orden Relacionada</label>
             <span>#{{ selectedTransaction.order_number || selectedTransaction.order_id }}</span>

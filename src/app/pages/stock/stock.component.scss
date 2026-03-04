@@ -716,3 +716,200 @@ $border-radius-sm: 8px;
     }
   }
 }
+
+// ============================================
+// AGREGAR ESTOS ESTILOS AL stock.component.scss
+// (al final del archivo existente)
+// ============================================
+
+// ========== TAB TRANSFERENCIAS ==========
+
+.branch-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+
+  &.from {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  &.to {
+    background: #d1e7dd;
+    color: #0f5132;
+  }
+}
+
+.direction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  &.outgoing {
+    background: #f8d7da;
+    color: #842029;
+  }
+
+  &.incoming {
+    background: #d1e7dd;
+    color: #0f5132;
+  }
+}
+
+// ========== MODAL DE TRANSFERENCIA ==========
+
+.transfer-modal-header {
+  background: linear-gradient(135deg, #198754 0%, #157347 100%);
+  color: white;
+
+  .btn-close {
+    filter: brightness(0) invert(1);
+  }
+}
+
+.section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.transfer-type-buttons {
+  display: flex;
+  gap: 8px;
+
+  .type-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: #198754;
+      color: #198754;
+    }
+
+    &.active {
+      border-color: #198754;
+      background: #198754;
+      color: white;
+    }
+  }
+}
+
+.transfer-preview {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+
+  .preview-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
+  }
+}
+
+.transfer-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  .flow-from,
+  .flow-to {
+    flex: 1;
+    text-align: center;
+    padding: 8px;
+    border-radius: 6px;
+    background: white;
+    border: 1px solid #dee2e6;
+
+    small {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 0.7rem;
+    }
+  }
+
+  .flow-from {
+    border-left: 3px solid #dc3545;
+  }
+
+  .flow-to {
+    border-left: 3px solid #198754;
+  }
+
+  .flow-stock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 1rem;
+    font-weight: 600;
+
+    .stock-before {
+      color: #6c757d;
+    }
+
+    .stock-after {
+      color: #198754;
+    }
+
+    .stock-receive {
+      color: #198754;
+      font-size: 1.1rem;
+    }
+
+    .bi-arrow-right {
+      color: #adb5bd;
+      font-size: 0.8rem;
+    }
+  }
+
+  .flow-arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    color: #198754;
+    font-weight: 700;
+    font-size: 0.85rem;
+
+    .bi-truck {
+      font-size: 1.2rem;
+    }
+  }
+}
+
+// ========== MOVEMENT BADGE PARA TRANSFERENCIAS ==========
+
+.movement-badge {
+  &.transferencia_entrada {
+    background: #d1e7dd;
+    color: #0f5132;
+  }
+
+  &.transferencia_salida {
+    background: #f8d7da;
+    color: #842029;
+  }
+}

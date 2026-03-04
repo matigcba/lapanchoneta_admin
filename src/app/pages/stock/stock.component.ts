@@ -31,6 +31,11 @@ export class StockComponent implements OnInit, OnDestroy {
   movements: any[] = [];
   filteredMovements: any[] = [];
 
+  // Transferencias
+  transfers: any[] = [];
+  filteredTransfers: any[] = [];
+  transferTypeFilter = 'all'; // 'all', 'product', 'ingredient'
+
   // Categorización de stock
   criticalStock: any[] = [];
   lowStock: any[] = [];
@@ -58,6 +63,19 @@ export class StockComponent implements OnInit, OnDestroy {
   showHistoryModal = false;
   itemHistory: any[] = [];
 
+  // Modal de transferencia
+  showTransferModal = false;
+  transferItemType: 'product' | 'ingredient' = 'product';
+  transferItemId: number | null = null;
+  transferItemName: string = '';
+  transferFromStock: number = 0;
+  transferQuantity: number = 0;
+  transferReason: string = '';
+  transferToBranchId: number | null = null;
+  allBranches: any[] = [];
+  availableItems: any[] = []; // Items del tipo seleccionado para el dropdown
+  transferSaving = false;
+
   ngOnInit() {
     this.currentBranchId = this.productService.getCurrentBranch();
 
@@ -72,6 +90,7 @@ export class StockComponent implements OnInit, OnDestroy {
       });
 
     this.loadData();
+    this.loadBranches();
   }
 
   ngOnDestroy() {
@@ -84,6 +103,7 @@ export class StockComponent implements OnInit, OnDestroy {
     this.loadProducts();
     this.loadIngredients();
     this.loadMovements();
+    this.loadTransfers();
 
     setTimeout(() => {
       this.loading = false;
@@ -109,8 +129,6 @@ export class StockComponent implements OnInit, OnDestroy {
     this.productService.getIngredients().subscribe({
       next: (response: any) => {
         this.ingredients = (response?.data || response || []).filter((i: any) => i.is_active);
-        
-        // Cargar información de uso en recetas
         this.loadIngredientUsage();
         this.filterIngredients();
         this.categorizeStock();
@@ -124,10 +142,7 @@ export class StockComponent implements OnInit, OnDestroy {
   }
 
   loadIngredientUsage() {
-    // Contar en cuántos productos se usa cada ingrediente
     this.ingredients.forEach(ingredient => {
-      // TODO: Implementar endpoint para obtener uso real
-      // Por ahora se puede calcular del lado del cliente si tienes las recetas
       ingredient.usage_count = ingredient.usage_count || 0;
     });
   }
@@ -146,6 +161,33 @@ export class StockComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadTransfers() {
+    this.productService.getStockTransfers(this.currentBranchId!).subscribe({
+      next: (response: any) => {
+        this.transfers = response?.data || [];
+        this.filterTransfers();
+      },
+      error: (error) => {
+        console.error('Error cargando transferencias:', error);
+        this.transfers = [];
+        this.filterTransfers();
+      }
+    });
+  }
+
+  loadBranches() {
+    this.productService.getBranches().subscribe({
+      next: (response: any) => {
+        const branches = response?.data || response || [];
+        this.allBranches = branches.filter((b: any) => b.is_active);
+      },
+      error: (error) => {
+        console.error('Error cargando sucursales:', error);
+        this.allBranches = [];
+      }
+    });
+  }
+
   // ============================================
   // FILTROS
   // ============================================
@@ -157,14 +199,12 @@ export class StockComponent implements OnInit, OnDestroy {
   filterProducts() {
     let filtered = [...this.products];
 
-    // Filtro por tipo
     if (this.productTypeFilter === 'simple') {
       filtered = filtered.filter(p => !p.has_recipe);
     } else if (this.productTypeFilter === 'recipe') {
       filtered = filtered.filter(p => p.has_recipe);
     }
 
-    // Filtro por búsqueda
     if (this.searchTerm) {
       const term = this.searchTerm.toLowerCase();
       filtered = filtered.filter(p =>
@@ -193,17 +233,25 @@ export class StockComponent implements OnInit, OnDestroy {
   filterMovements() {
     let filtered = [...this.movements];
 
-    // Filtro por tipo de item
     if (this.movementTypeFilter !== 'all') {
       filtered = filtered.filter(m => m.item_type === this.movementTypeFilter);
     }
 
-    // Filtro por tipo de movimiento
     if (this.movementFilter !== 'all') {
       filtered = filtered.filter(m => m.movement_type === this.movementFilter);
     }
 
     this.filteredMovements = filtered;
+  }
+
+  filterTransfers() {
+    let filtered = [...this.transfers];
+
+    if (this.transferTypeFilter !== 'all') {
+      filtered = filtered.filter(t => t.item_type === this.transferTypeFilter);
+    }
+
+    this.filteredTransfers = filtered;
   }
 
   // ============================================
@@ -337,7 +385,7 @@ export class StockComponent implements OnInit, OnDestroy {
     this.itemHistory = [];
 
     const itemId = item.id;
-    
+
     this.productService.getStockMovements(this.currentBranchId!, itemId, type).subscribe({
       next: (response: any) => {
         this.itemHistory = response?.data || [];
@@ -358,6 +406,181 @@ export class StockComponent implements OnInit, OnDestroy {
   }
 
   // ============================================
+  // MODAL DE TRANSFERENCIA
+  // ============================================
+
+  /**
+   * Abrir modal de transferencia desde un item específico (producto o ingrediente)
+   */
+  openTransferFromItem(item: any, type: 'product' | 'ingredient') {
+    this.transferItemType = type;
+    this.transferItemId = item.id;
+    this.transferItemName = item.name;
+    this.transferFromStock = item.stock || 0;
+    this.transferQuantity = 0;
+    this.transferReason = '';
+    this.transferToBranchId = null;
+    this.transferSaving = false;
+
+    // Cargar items disponibles del tipo seleccionado
+    this.updateAvailableItems();
+
+    this.showTransferModal = true;
+  }
+
+  /**
+   * Abrir modal de transferencia genérico (desde el botón del header)
+   */
+  openTransferModal() {
+    this.transferItemType = 'product';
+    this.transferItemId = null;
+    this.transferItemName = '';
+    this.transferFromStock = 0;
+    this.transferQuantity = 0;
+    this.transferReason = '';
+    this.transferToBranchId = null;
+    this.transferSaving = false;
+
+    this.updateAvailableItems();
+
+    this.showTransferModal = true;
+  }
+
+  closeTransferModal() {
+    this.showTransferModal = false;
+    this.transferItemId = null;
+    this.transferItemName = '';
+    this.transferFromStock = 0;
+    this.transferQuantity = 0;
+    this.transferReason = '';
+    this.transferToBranchId = null;
+  }
+
+  /**
+   * Actualizar lista de items disponibles según el tipo seleccionado
+   */
+  updateAvailableItems() {
+    if (this.transferItemType === 'product') {
+      // Solo productos simples (sin receta)
+      this.availableItems = this.products.filter(p => !p.has_recipe);
+    } else {
+      this.availableItems = [...this.ingredients];
+    }
+  }
+
+  /**
+   * Cuando cambia el tipo de item en el modal
+   */
+  onTransferItemTypeChange() {
+    this.transferItemId = null;
+    this.transferItemName = '';
+    this.transferFromStock = 0;
+    this.updateAvailableItems();
+  }
+
+  /**
+   * Cuando selecciona un item en el dropdown
+   */
+  onTransferItemChange() {
+    if (!this.transferItemId) {
+      this.transferItemName = '';
+      this.transferFromStock = 0;
+      return;
+    }
+
+    const item = this.availableItems.find(i => i.id == this.transferItemId);
+    if (item) {
+      this.transferItemName = item.name;
+      this.transferFromStock = item.stock || 0;
+    }
+  }
+
+  /**
+   * Sucursales destino disponibles (todas menos la actual)
+   */
+  getDestinationBranches(): any[] {
+    return this.allBranches.filter(b => b.id !== this.currentBranchId);
+  }
+
+  /**
+   * Validar si se puede confirmar la transferencia
+   */
+  canConfirmTransfer(): boolean {
+    return !!(
+      this.transferItemId &&
+      this.transferToBranchId &&
+      this.transferQuantity > 0 &&
+      this.transferQuantity <= this.transferFromStock &&
+      this.transferReason?.trim() &&
+      !this.transferSaving
+    );
+  }
+
+  /**
+   * Stock resultante después de la transferencia (en origen)
+   */
+  getTransferNewStock(): number {
+    return Math.max(0, this.transferFromStock - (this.transferQuantity || 0));
+  }
+
+  /**
+   * Confirmar y ejecutar la transferencia
+   */
+  confirmTransfer() {
+    if (!this.canConfirmTransfer()) {
+      alert('Por favor complete todos los campos correctamente');
+      return;
+    }
+
+    const destBranch = this.allBranches.find((b: any) => b.id == this.transferToBranchId);
+    const destName = destBranch?.name || 'Destino';
+
+    const confirmMsg = `¿Confirmar transferencia?\n\n` +
+      `${this.transferItemName}\n` +
+      `Cantidad: ${this.transferQuantity}\n` +
+      `Destino: ${destName}\n\n` +
+      `Stock actual: ${this.transferFromStock} → ${this.getTransferNewStock()}`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    this.transferSaving = true;
+
+    this.productService.transferStock({
+      from_branch_id: this.currentBranchId!,
+      to_branch_id: this.transferToBranchId!,
+      item_type: this.transferItemType,
+      item_id: this.transferItemId!,
+      quantity: this.transferQuantity,
+      reason: this.transferReason
+    }).subscribe({
+      next: (response: any) => {
+        this.transferSaving = false;
+
+        if (response.success) {
+          let msg = 'Transferencia realizada exitosamente';
+
+          if (response.data?.affected_products > 0) {
+            msg += `\n${response.data.affected_products} producto(s) con receta fueron recalculados.`;
+          }
+
+          alert(msg);
+          this.closeTransferModal();
+          this.loadData();
+        } else {
+          alert(response.message || 'Error al realizar la transferencia');
+        }
+      },
+      error: (error: any) => {
+        this.transferSaving = false;
+        console.error('Error en transferencia:', error);
+        alert(error.error?.message || 'Error al realizar la transferencia');
+      }
+    });
+  }
+
+  // ============================================
   // HELPERS
   // ============================================
 
@@ -370,6 +593,10 @@ export class StockComponent implements OnInit, OnDestroy {
         return 'bi bi-arrow-up-circle-fill text-danger';
       case 'ajuste':
         return 'bi bi-arrow-left-right text-info';
+      case 'transferencia_entrada':
+        return 'bi bi-box-arrow-in-down text-success';
+      case 'transferencia_salida':
+        return 'bi bi-box-arrow-up text-danger';
       default:
         return 'bi bi-circle text-secondary';
     }
@@ -380,7 +607,16 @@ export class StockComponent implements OnInit, OnDestroy {
       case 'entrada': return 'Entrada';
       case 'salida': return 'Salida';
       case 'ajuste': return 'Ajuste';
+      case 'transferencia_entrada': return 'Transfer. Entrada';
+      case 'transferencia_salida': return 'Transfer. Salida';
       default: return type;
     }
+  }
+
+  /**
+   * Helper para saber si la sucursal actual es la origen o destino de una transferencia
+   */
+  getTransferDirection(transfer: any): 'out' | 'in' {
+    return transfer.from_branch_id === this.currentBranchId ? 'out' : 'in';
   }
 }

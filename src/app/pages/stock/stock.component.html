@@ -7,6 +7,10 @@
         <p class="page-subtitle">Control de inventario y movimientos de productos</p>
       </div>
       <div class="header-actions">
+        <button class="btn btn-success me-2" (click)="openTransferModal()">
+          <i class="bi bi-arrow-left-right"></i>
+          <span class="d-none d-md-inline ms-1">Transferir Stock</span>
+        </button>
         <button class="btn btn-primary" (click)="loadData()" [disabled]="loading">
           <i class="bi bi-arrow-clockwise" [class.spinning]="loading"></i>
           <span class="d-none d-md-inline ms-1">Actualizar</span>
@@ -84,6 +88,13 @@
           <i class="bi bi-arrow-left-right me-2"></i>
           Movimientos
           <span class="badge bg-secondary ms-1">{{ movements.length }}</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" [class.active]="activeTab === 'transfers'" (click)="changeTab('transfers')">
+          <i class="bi bi-building me-2"></i>
+          Transferencias
+          <span class="badge bg-secondary ms-1">{{ transfers.length }}</span>
         </a>
       </li>
     </ul>
@@ -178,6 +189,15 @@
                           title="Ajustar stock">
                     <i class="bi bi-arrow-up-down"></i>
                     <span class="d-none d-lg-inline ms-1">Ajustar</span>
+                  </button>
+                  
+                  <!-- Botón Transferir: SOLO para productos simples -->
+                  <button class="btn btn-sm btn-success me-1" 
+                          *ngIf="!product.has_recipe && product.stock > 0"
+                          (click)="openTransferFromItem(product, 'product')" 
+                          title="Transferir a otra sucursal">
+                    <i class="bi bi-building"></i>
+                    <span class="d-none d-lg-inline ms-1">Transferir</span>
                   </button>
                   
                   <!-- Info para productos con receta -->
@@ -297,6 +317,14 @@
                     <i class="bi bi-arrow-up-down"></i>
                     <span class="d-none d-lg-inline ms-1">Ajustar</span>
                   </button>
+                  <!-- Botón Transferir ingrediente -->
+                  <button class="btn btn-sm btn-success me-1" 
+                          *ngIf="ingredient.stock > 0"
+                          (click)="openTransferFromItem(ingredient, 'ingredient')" 
+                          title="Transferir a otra sucursal">
+                    <i class="bi bi-building"></i>
+                    <span class="d-none d-lg-inline ms-1">Transferir</span>
+                  </button>
                   <button class="btn btn-sm btn-outline-secondary" 
                           (click)="viewHistory(ingredient, 'ingredient')" 
                           title="Ver historial">
@@ -341,6 +369,8 @@
             <option value="entrada">Entradas</option>
             <option value="salida">Salidas</option>
             <option value="ajuste">Ajustes</option>
+            <option value="transferencia_entrada">Transfer. Entrada</option>
+            <option value="transferencia_salida">Transfer. Salida</option>
           </select>
         </div>
       </div>
@@ -387,9 +417,10 @@
                 </span>
               </td>
               <td>
-                <strong class="quantity" [class.positive]="movement.movement_type === 'entrada'"
-                        [class.negative]="movement.movement_type === 'salida'">
-                  {{ movement.movement_type === 'entrada' ? '+' : movement.movement_type === 'salida' ? '-' : '±' }}{{ movement.quantity }}
+                <strong class="quantity" 
+                        [class.positive]="movement.movement_type === 'entrada' || movement.movement_type === 'transferencia_entrada'"
+                        [class.negative]="movement.movement_type === 'salida' || movement.movement_type === 'transferencia_salida'">
+                  {{ movement.movement_type === 'entrada' || movement.movement_type === 'transferencia_entrada' ? '+' : movement.movement_type === 'salida' || movement.movement_type === 'transferencia_salida' ? '-' : '±' }}{{ movement.quantity }}
                 </strong>
               </td>
               <td>{{ movement.previous_stock }}</td>
@@ -412,6 +443,117 @@
         <i class="bi bi-inbox"></i>
         <h4>No hay movimientos</h4>
         <p>No hay movimientos registrados con los filtros aplicados</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- TAB: TRANSFERENCIAS -->
+  <!-- ========================================== -->
+  <div class="content-card" *ngIf="activeTab === 'transfers'">
+    <div class="card-header-custom">
+      <h5>
+        <i class="bi bi-building me-2"></i>
+        Historial de Transferencias
+      </h5>
+      <div class="header-filters">
+        <div class="filter-group">
+          <select class="form-select form-select-sm" [(ngModel)]="transferTypeFilter" (change)="filterTransfers()">
+            <option value="all">Todos los tipos</option>
+            <option value="product">Solo productos</option>
+            <option value="ingredient">Solo ingredientes</option>
+          </select>
+        </div>
+        <button class="btn btn-sm btn-success ms-2" (click)="openTransferModal()">
+          <i class="bi bi-plus-lg me-1"></i>
+          Nueva Transferencia
+        </button>
+      </div>
+    </div>
+
+    <div class="card-body-custom">
+      <div class="table-responsive" *ngIf="filteredTransfers.length > 0">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Item</th>
+              <th>Cantidad</th>
+              <th>Origen</th>
+              <th>Destino</th>
+              <th>Dirección</th>
+              <th>Motivo</th>
+              <th>Realizado por</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let transfer of filteredTransfers">
+              <td>
+                <div class="date-cell">
+                  <span class="date">{{ transfer.created_at | date:'dd/MM/yyyy' }}</span>
+                  <span class="time">{{ transfer.created_at | date:'HH:mm' }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="item-type-badge" 
+                      [class.product]="transfer.item_type === 'product'" 
+                      [class.ingredient]="transfer.item_type === 'ingredient'">
+                  <i class="bi" [ngClass]="transfer.item_type === 'product' ? 'bi-box-seam' : 'bi-egg-fried'"></i>
+                  {{ transfer.item_type === 'product' ? 'Producto' : 'Ingrediente' }}
+                </span>
+              </td>
+              <td>
+                <strong>{{ transfer.item_name }}</strong>
+              </td>
+              <td>
+                <strong>{{ transfer.quantity }}</strong>
+              </td>
+              <td>
+                <span class="branch-badge from">
+                  <i class="bi bi-building me-1"></i>
+                  {{ transfer.from_branch_name }}
+                </span>
+                <br>
+                <small class="text-muted">{{ transfer.from_previous_stock }} → {{ transfer.from_new_stock }}</small>
+              </td>
+              <td>
+                <span class="branch-badge to">
+                  <i class="bi bi-building me-1"></i>
+                  {{ transfer.to_branch_name }}
+                </span>
+                <br>
+                <small class="text-muted">{{ transfer.to_previous_stock }} → {{ transfer.to_new_stock }}</small>
+              </td>
+              <td>
+                <span class="direction-badge" [class.outgoing]="getTransferDirection(transfer) === 'out'"
+                      [class.incoming]="getTransferDirection(transfer) === 'in'">
+                  <i class="bi" [ngClass]="getTransferDirection(transfer) === 'out' ? 'bi-box-arrow-up-right' : 'bi-box-arrow-in-down-left'"></i>
+                  {{ getTransferDirection(transfer) === 'out' ? 'Enviado' : 'Recibido' }}
+                </span>
+              </td>
+              <td>
+                <small class="reason-text">{{ transfer.reason || '-' }}</small>
+              </td>
+              <td>
+                <span class="user-badge">
+                  <i class="bi bi-person-circle me-1"></i>
+                  {{ transfer.admin_name }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" *ngIf="filteredTransfers.length === 0">
+        <i class="bi bi-inbox"></i>
+        <h4>No hay transferencias</h4>
+        <p>No se han realizado transferencias de stock aún</p>
+        <button class="btn btn-success mt-2" (click)="openTransferModal()">
+          <i class="bi bi-arrow-left-right me-1"></i>
+          Realizar primera transferencia
+        </button>
       </div>
     </div>
   </div>
@@ -558,9 +700,10 @@
                   </span>
                 </td>
                 <td>
-                  <strong class="quantity" [class.positive]="movement.movement_type === 'entrada'"
-                          [class.negative]="movement.movement_type === 'salida'">
-                    {{ movement.movement_type === 'entrada' ? '+' : movement.movement_type === 'salida' ? '-' : '±' }}{{ movement.quantity }}
+                  <strong class="quantity" 
+                          [class.positive]="movement.movement_type === 'entrada' || movement.movement_type === 'transferencia_entrada'"
+                          [class.negative]="movement.movement_type === 'salida' || movement.movement_type === 'transferencia_salida'">
+                    {{ movement.movement_type === 'entrada' || movement.movement_type === 'transferencia_entrada' ? '+' : movement.movement_type === 'salida' || movement.movement_type === 'transferencia_salida' ? '-' : '±' }}{{ movement.quantity }}
                   </strong>
                 </td>
                 <td>{{ movement.previous_stock }}</td>
@@ -591,6 +734,166 @@
   </div>
 </div>
 
+<!-- ========================================== -->
+<!-- MODAL: TRANSFERENCIA DE STOCK -->
+<!-- ========================================== -->
+<div class="modal" [class.show]="showTransferModal" [style.display]="showTransferModal ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header transfer-modal-header">
+        <h5 class="modal-title">
+          <i class="bi bi-building me-2"></i>
+          Transferir Stock a otra Sucursal
+        </h5>
+        <button type="button" class="btn-close" (click)="closeTransferModal()"></button>
+      </div>
+      <div class="modal-body">
+
+        <div class="row">
+          <!-- Columna izquierda: Selección de item -->
+          <div class="col-md-6">
+            <h6 class="section-title">
+              <i class="bi bi-box-seam me-1"></i>
+              ¿Qué transferir?
+            </h6>
+
+            <!-- Tipo de item -->
+            <div class="mb-3">
+              <label class="form-label">Tipo</label>
+              <div class="transfer-type-buttons">
+                <button type="button" class="type-btn" 
+                        [class.active]="transferItemType === 'product'" 
+                        (click)="transferItemType = 'product'; onTransferItemTypeChange()">
+                  <i class="bi bi-box-seam"></i>
+                  Producto
+                </button>
+                <button type="button" class="type-btn" 
+                        [class.active]="transferItemType === 'ingredient'" 
+                        (click)="transferItemType = 'ingredient'; onTransferItemTypeChange()">
+                  <i class="bi bi-egg-fried"></i>
+                  Ingrediente
+                </button>
+              </div>
+            </div>
+
+            <!-- Selector de item -->
+            <div class="mb-3">
+              <label class="form-label">{{ transferItemType === 'product' ? 'Producto' : 'Ingrediente' }} *</label>
+              <select class="form-select" [(ngModel)]="transferItemId" (ngModelChange)="onTransferItemChange()">
+                <option [ngValue]="null">-- Seleccionar --</option>
+                <option *ngFor="let item of availableItems" [ngValue]="item.id">
+                  {{ item.name }} (Stock: {{ item.stock || 0 }})
+                </option>
+              </select>
+              <small class="text-muted" *ngIf="transferItemType === 'product'">
+                Solo se muestran productos simples (sin receta)
+              </small>
+            </div>
+
+            <!-- Stock actual -->
+            <div class="mb-3" *ngIf="transferItemId">
+              <label class="form-label">Stock Actual en esta sucursal</label>
+              <input type="text" class="form-control" [value]="transferFromStock" readonly>
+            </div>
+
+            <!-- Cantidad -->
+            <div class="mb-3">
+              <label class="form-label">Cantidad a transferir *</label>
+              <input type="number" class="form-control" [(ngModel)]="transferQuantity" 
+                     min="0.01" step="0.01" [max]="transferFromStock"
+                     placeholder="Ingrese la cantidad">
+              <small class="text-danger" *ngIf="transferQuantity > transferFromStock && transferFromStock > 0">
+                La cantidad excede el stock disponible ({{ transferFromStock }})
+              </small>
+            </div>
+          </div>
+
+          <!-- Columna derecha: Destino y motivo -->
+          <div class="col-md-6">
+            <h6 class="section-title">
+              <i class="bi bi-geo-alt me-1"></i>
+              ¿A dónde?
+            </h6>
+
+            <!-- Sucursal destino -->
+            <div class="mb-3">
+              <label class="form-label">Sucursal destino *</label>
+              <select class="form-select" [(ngModel)]="transferToBranchId">
+                <option [ngValue]="null">-- Seleccionar sucursal --</option>
+                <option *ngFor="let branch of getDestinationBranches()" [ngValue]="branch.id">
+                  {{ branch.name }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Motivo -->
+            <div class="mb-3">
+              <label class="form-label">Motivo *</label>
+              <textarea class="form-control" [(ngModel)]="transferReason" rows="3"
+                        placeholder="Ej: Reposición de stock, Faltante en sucursal, Redistribución de inventario..."></textarea>
+            </div>
+
+            <!-- Preview del resultado -->
+            <div class="transfer-preview" *ngIf="transferItemId && transferToBranchId && transferQuantity > 0">
+              <h6 class="preview-title">
+                <i class="bi bi-eye me-1"></i>
+                Vista previa
+              </h6>
+              <div class="transfer-flow">
+                <div class="flow-from">
+                  <small class="text-muted">Origen (esta sucursal)</small>
+                  <div class="flow-stock">
+                    <span class="stock-before">{{ transferFromStock }}</span>
+                    <i class="bi bi-arrow-right"></i>
+                    <span class="stock-after" [class.text-danger]="getTransferNewStock() <= 0"
+                          [class.text-warning]="getTransferNewStock() > 0 && getTransferNewStock() <= 5">
+                      {{ getTransferNewStock() }}
+                    </span>
+                  </div>
+                </div>
+                <div class="flow-arrow">
+                  <i class="bi bi-truck"></i>
+                  <span>{{ transferQuantity }}</span>
+                </div>
+                <div class="flow-to">
+                  <small class="text-muted">Destino</small>
+                  <div class="flow-stock">
+                    <span class="stock-receive">+{{ transferQuantity }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alerta para ingredientes -->
+            <div class="alert alert-warning mt-3" *ngIf="transferItemType === 'ingredient'">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <small>
+                <strong>Nota:</strong> Al transferir ingredientes, se recalculará automáticamente 
+                el stock de los productos con receta en ambas sucursales.
+              </small>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeTransferModal()">
+          Cancelar
+        </button>
+        <button type="button" class="btn btn-success" (click)="confirmTransfer()"
+                [disabled]="!canConfirmTransfer()">
+          <span *ngIf="!transferSaving">
+            <i class="bi bi-building me-1"></i> Confirmar Transferencia
+          </span>
+          <span *ngIf="transferSaving">
+            <span class="spinner-border spinner-border-sm me-1"></span> Transfiriendo...
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Backdrop -->
-<div class="modal-backdrop fade" [class.show]="showAdjustModal || showHistoryModal"
-     [style.display]="showAdjustModal || showHistoryModal ? 'block' : 'none'"></div>
+<div class="modal-backdrop fade" [class.show]="showAdjustModal || showHistoryModal || showTransferModal"
+     [style.display]="showAdjustModal || showHistoryModal || showTransferModal ? 'block' : 'none'"></div>

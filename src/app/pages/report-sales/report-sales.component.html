@@ -1,15 +1,305 @@
-<div class="construction-container">
-  <div class="construction-card">
-    <div class="construction-icon">
-      <i class="bi bi-gear-wide-connected"></i>
+<div class="reports-container">
+  <!-- Header -->
+  <div class="page-header">
+    <div class="header-content">
+      <div>
+        <h1 class="page-title">
+          Reportes de Ventas
+        </h1>
+        <p class="page-subtitle">Análisis de ventas, productos y rendimiento</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn-modern btn-success-modern" (click)="exportExcel()" [disabled]="exporting || loading || data.length === 0">
+          <i class="bi bi-file-earmark-excel" [class.bi-hourglass-split]="exporting"></i>
+          <span>{{ exporting ? 'Exportando...' : 'Exportar Excel' }}</span>
+        </button>
+        <button class="btn-modern btn-primary-modern" (click)="loadReport()" [disabled]="loading">
+          <i class="bi bi-arrow-clockwise" [class.spinning]="loading"></i>
+          <span>Actualizar</span>
+        </button>
+      </div>
     </div>
-    
-    <h1>Página en Construcción</h1>
-    <p>Estamos trabajando en esta sección. Pronto estará disponible.</p>
-    
-    <button class="btn-back" (click)="goBack()">
-      <i class="bi bi-arrow-left"></i>
-      Volver al Dashboard
-    </button>
+  </div>
+
+  <!-- Controles -->
+  <div class="controls-section">
+    <div class="controls-row">
+      <!-- Tipo de reporte -->
+      <div class="control-group">
+        <label>Tipo de Reporte</label>
+        <div class="report-type-buttons">
+          <button [class.active]="reportType === 'products'" (click)="reportType = 'products'; onReportTypeChange()">
+            <i class="bi bi-box-seam"></i> Productos
+          </button>
+          <button [class.active]="reportType === 'categories'" (click)="reportType = 'categories'; onReportTypeChange()">
+            <i class="bi bi-tags"></i> Categorías
+          </button>
+          <button [class.active]="reportType === 'branches'" (click)="reportType = 'branches'; onReportTypeChange()">
+            <i class="bi bi-building"></i> Sucursales
+          </button>
+          <button [class.active]="reportType === 'employees'" (click)="reportType = 'employees'; onReportTypeChange()">
+            <i class="bi bi-people"></i> Empleados
+          </button>
+        </div>
+      </div>
+
+      <!-- Período -->
+      <div class="control-group">
+        <label>Período</label>
+        <div class="period-buttons">
+          <button [class.active]="period === 'today'" (click)="setPeriod('today')">Hoy</button>
+          <button [class.active]="period === 'yesterday'" (click)="setPeriod('yesterday')">Ayer</button>
+          <button [class.active]="period === 'week'" (click)="setPeriod('week')">Semana</button>
+          <button [class.active]="period === 'month'" (click)="setPeriod('month')">Mes</button>
+          <button [class.active]="period === 'custom'" (click)="setPeriod('custom')">
+            <i class="bi bi-calendar3"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fechas personalizadas -->
+    <div class="custom-dates" *ngIf="period === 'custom'">
+      <div class="date-input">
+        <label>Desde</label>
+        <input type="date" [(ngModel)]="dateFrom">
+      </div>
+      <div class="date-input">
+        <label>Hasta</label>
+        <input type="date" [(ngModel)]="dateTo">
+      </div>
+      <button class="btn-apply" (click)="applyCustomDates()">
+        <i class="bi bi-search me-1"></i> Aplicar
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" *ngIf="loading">
+    <div class="spinner"></div>
+    <span>Generando reporte...</span>
+  </div>
+
+  <!-- Contenido -->
+  <div *ngIf="!loading">
+
+    <!-- Resumen general -->
+    <div class="summary-cards">
+      <div class="s-card">
+        <div class="s-icon orders"><i class="bi bi-receipt"></i></div>
+        <div class="s-content">
+          <span class="s-value">{{ summary.total_orders }}</span>
+          <span class="s-label">Órdenes</span>
+        </div>
+      </div>
+      <div class="s-card">
+        <div class="s-icon revenue"><i class="bi bi-currency-dollar"></i></div>
+        <div class="s-content">
+          <span class="s-value">${{ summary.total_revenue | number:'1.0-0' }}</span>
+          <span class="s-label">Ingresos</span>
+        </div>
+      </div>
+      <div class="s-card">
+        <div class="s-icon ticket"><i class="bi bi-tag"></i></div>
+        <div class="s-content">
+          <span class="s-value">${{ summary.avg_ticket | number:'1.0-0' }}</span>
+          <span class="s-label">Ticket Promedio</span>
+        </div>
+      </div>
+      <div class="s-card">
+        <div class="s-icon daily"><i class="bi bi-calendar-check"></i></div>
+        <div class="s-content">
+          <span class="s-value">${{ summary.avg_daily_revenue | number:'1.0-0' }}</span>
+          <span class="s-label">Prom. Diario</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tendencia diaria (mini chart) -->
+    <div class="trend-section" *ngIf="trend.length > 1">
+      <div class="trend-header">
+        <h3><i class="bi bi-graph-up me-2"></i>Tendencia Diaria</h3>
+        <span class="trend-total">${{ summary.total_revenue | number:'1.2-2' }} total</span>
+      </div>
+      <div class="trend-chart">
+        <div class="trend-bar-container" *ngFor="let day of trend" [title]="day.date + ': $' + (day.revenue | number:'1.0-0') + ' (' + day.orders_count + ' órdenes)'">
+          <div class="trend-bar" [style.height.%]="getTrendBarHeight(day.revenue)"></div>
+          <span class="trend-label">{{ formatDay(day.date) }}</span>
+          <span class="trend-value">${{ day.revenue | number:'1.0-0' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- GRÁFICO DE BARRAS HORIZONTAL + TABLA       -->
+    <!-- ========================================== -->
+    <div class="report-content" *ngIf="data.length > 0">
+      
+      <!-- Chart de barras -->
+      <div class="chart-section">
+        <h3 class="section-title">
+          <i class="bi me-2" [ngClass]="{
+            'bi-box-seam': reportType === 'products',
+            'bi-tags': reportType === 'categories',
+            'bi-building': reportType === 'branches',
+            'bi-people': reportType === 'employees'
+          }"></i>
+          {{ getReportTypeLabel() }}
+        </h3>
+        
+        <div class="horizontal-chart">
+          <!-- Productos -->
+          <div class="chart-row" *ngFor="let item of data; let i = index">
+            <div class="chart-rank">{{ i + 1 }}</div>
+            <div class="chart-label">
+              <span class="chart-name">
+                {{ item.product_name || item.category_name || item.branch_name || item.employee_name }}
+              </span>
+              <span class="chart-subtitle" *ngIf="reportType === 'products' && item.is_combo">Combo</span>
+              <span class="chart-subtitle" *ngIf="reportType === 'employees'">{{ getRoleName(item.employee_role) }}</span>
+            </div>
+            <div class="chart-bar-wrapper">
+              <div class="chart-bar" 
+                   [style.width.%]="getBarWidth(reportType === 'products' ? item.total_quantity : item.total_revenue)"
+                   [style.background]="getBarColor(i)">
+              </div>
+            </div>
+            <div class="chart-value">
+              <strong *ngIf="reportType === 'products'">{{ item.total_quantity }} uds</strong>
+              <strong *ngIf="reportType !== 'products'">${{ item.total_revenue | number:'1.0-0' }}</strong>
+              <small *ngIf="reportType === 'products'">${{ item.total_revenue | number:'1.0-0' }}</small>
+              <small *ngIf="reportType !== 'products'">{{ item.orders_count }} órdenes</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla detallada -->
+      <div class="table-section">
+        <h3 class="section-title">
+          <i class="bi bi-table me-2"></i>
+          Detalle
+        </h3>
+        
+        <div class="table-responsive">
+          <!-- TABLA: PRODUCTOS -->
+          <table class="report-table" *ngIf="reportType === 'products'">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Producto</th>
+                <th>Tipo</th>
+                <th class="text-end">Cantidad</th>
+                <th class="text-end">Ingresos</th>
+                <th class="text-end">Órdenes</th>
+                <th class="text-end">Precio Prom.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of data; let i = index">
+                <td><span class="rank-badge" [style.background]="getBarColor(i)">{{ i + 1 }}</span></td>
+                <td><strong>{{ item.product_name }}</strong></td>
+                <td>
+                  <span class="type-chip" [class.combo]="item.is_combo">
+                    {{ item.is_combo ? 'Combo' : 'Producto' }}
+                  </span>
+                </td>
+                <td class="text-end"><strong>{{ item.total_quantity }}</strong></td>
+                <td class="text-end">${{ item.total_revenue | number:'1.2-2' }}</td>
+                <td class="text-end">{{ item.orders_count }}</td>
+                <td class="text-end">${{ item.avg_price | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- TABLA: CATEGORÍAS -->
+          <table class="report-table" *ngIf="reportType === 'categories'">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Categoría</th>
+                <th class="text-end">Cantidad</th>
+                <th class="text-end">Ingresos</th>
+                <th class="text-end">Productos</th>
+                <th class="text-end">Órdenes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of data; let i = index">
+                <td><span class="rank-badge" [style.background]="getBarColor(i)">{{ i + 1 }}</span></td>
+                <td><strong>{{ item.category_name }}</strong></td>
+                <td class="text-end">{{ item.total_quantity }}</td>
+                <td class="text-end"><strong>${{ item.total_revenue | number:'1.2-2' }}</strong></td>
+                <td class="text-end">{{ item.products_count }}</td>
+                <td class="text-end">{{ item.orders_count }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- TABLA: SUCURSALES -->
+          <table class="report-table" *ngIf="reportType === 'branches'">
+            <thead>
+              <tr>
+                <th>Sucursal</th>
+                <th class="text-end">Órdenes</th>
+                <th class="text-end">Ingresos</th>
+                <th class="text-end">Ticket Prom.</th>
+                <th class="text-end">Efectivo</th>
+                <th class="text-end">Tarjeta</th>
+                <th class="text-end">Transfer.</th>
+                <th class="text-end">QR</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of data; let i = index">
+                <td>
+                  <span class="rank-badge" [style.background]="getBarColor(i)">{{ i + 1 }}</span>
+                  <strong class="ms-2">{{ item.branch_name }}</strong>
+                </td>
+                <td class="text-end">{{ item.orders_count }}</td>
+                <td class="text-end"><strong>${{ item.total_revenue | number:'1.2-2' }}</strong></td>
+                <td class="text-end">${{ item.avg_ticket | number:'1.2-2' }}</td>
+                <td class="text-end">${{ item.cash_total | number:'1.2-2' }}</td>
+                <td class="text-end">${{ item.card_total | number:'1.2-2' }}</td>
+                <td class="text-end">${{ item.transfer_total | number:'1.2-2' }}</td>
+                <td class="text-end">${{ item.qr_total | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- TABLA: EMPLEADOS -->
+          <table class="report-table" *ngIf="reportType === 'employees'">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Empleado</th>
+                <th>Rol</th>
+                <th class="text-end">Órdenes</th>
+                <th class="text-end">Ingresos</th>
+                <th class="text-end">Ticket Prom.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of data; let i = index">
+                <td><span class="rank-badge" [style.background]="getBarColor(i)">{{ i + 1 }}</span></td>
+                <td><strong>{{ item.employee_name }}</strong></td>
+                <td><span class="role-chip">{{ getRoleName(item.employee_role) }}</span></td>
+                <td class="text-end">{{ item.orders_count }}</td>
+                <td class="text-end"><strong>${{ item.total_revenue | number:'1.2-2' }}</strong></td>
+                <td class="text-end">${{ item.avg_ticket | number:'1.2-2' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="!loading && data.length === 0">
+      <i class="bi bi-inbox"></i>
+      <h3>Sin datos</h3>
+      <p>No hay datos para el período seleccionado</p>
+    </div>
+
   </div>
 </div>

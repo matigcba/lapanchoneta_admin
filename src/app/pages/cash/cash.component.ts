@@ -5,6 +5,7 @@ import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { AuthService } from '../../core/services/auth.service';
 import { CashService } from '../../core/services/cash.service';
+import { BranchEventService } from '../../core/services/branch-event.service';
 
 @Component({
   selector: 'app-cash',
@@ -16,6 +17,7 @@ import { CashService } from '../../core/services/cash.service';
 export class CashComponent implements OnInit, OnDestroy {
   private cashService = inject(CashService);
   private authService = inject(AuthService);
+  private branchEventService = inject(BranchEventService);
   private destroy$ = new Subject<void>();
   private searchSubject = new Subject<string>();
 
@@ -27,40 +29,42 @@ export class CashComponent implements OnInit, OnDestroy {
   transactions: any[] = [];
   transactionTypes: any[] = [];
   
-  
-// Resumen
-summary = {
-  total_in: 0,
-  total_out: 0,
-  balance: 0,
-  completed_count: 0,
-  voided_count: 0,
-  // Ventas por método
-  cash_total: 0,
-  card_total: 0,
-  transfer_total: 0,
-  qr_total: 0,
-  other_total: 0,
-  // Movimientos de caja
-  deposits_total: 0,
-  withdrawals_total: 0,
-  expenses_total: 0
-};
+  // ✅ NUEVO: Multi-branch
+  isMultiBranch = false;
+  branchSummaries: any[] = [];
+  showBranchBreakdown = true;
 
-// Sesiones disponibles (para filtro)
-availableSessions: any[] = [];
+  // Resumen
+  summary = {
+    total_in: 0,
+    total_out: 0,
+    balance: 0,
+    completed_count: 0,
+    voided_count: 0,
+    cash_total: 0,
+    card_total: 0,
+    transfer_total: 0,
+    qr_total: 0,
+    other_total: 0,
+    deposits_total: 0,
+    withdrawals_total: 0,
+    expenses_total: 0
+  };
+
+  // Sesiones disponibles (para filtro)
+  availableSessions: any[] = [];
   
   filters: any = {
-  date_filter: 'today',
-  date_from: '',
-  date_to: '',
-  type: '',
-  payment_method: '',
-  movement_type: '',
-  status: '',
-  search: '',
-  session_status: ''  // NUEVO: 'open', 'closed', o '' para todas
-};
+    date_filter: 'today',
+    date_from: '',
+    date_to: '',
+    type: '',
+    payment_method: '',
+    movement_type: '',
+    status: '',
+    search: '',
+    session_status: ''
+  };
   
   // Paginación
   currentPage = 1;
@@ -76,15 +80,13 @@ availableSessions: any[] = [];
   // Print
   showPrintModal = false;
 
-  // Método helper para total de ventas
-getTotalSales(): number {
-  return this.summary.cash_total + 
-         this.summary.card_total + 
-         this.summary.transfer_total + 
-         this.summary.qr_total + 
-         this.summary.other_total;
-}
-
+  getTotalSales(): number {
+    return this.summary.cash_total + 
+           this.summary.card_total + 
+           this.summary.transfer_total + 
+           this.summary.qr_total + 
+           this.summary.other_total;
+  }
 
   ngOnInit() {
     // Debounce para búsqueda
@@ -97,11 +99,21 @@ getTotalSales(): number {
       this.loadData();
     });
 
-    // Suscribirse a cambios de sucursal
+    // ✅ MODIFICADO: Escuchar cambios de sucursal desde el selector global
+    this.branchEventService.branchChange$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((branchId: number) => {
+        // -1 significa "Todas las sucursales" (viene del app.component cuando selecciona 'all')
+        this.isMultiBranch = (branchId === -1);
+        this.currentPage = 1;
+        this.loadData();
+      });
+
+    // Suscribirse a cambios de sucursal (mantener compatibilidad)
     this.authService.currentBranch$
       .pipe(takeUntil(this.destroy$))
       .subscribe(branch => {
-        if (branch) {
+        if (branch && !this.isMultiBranch) {
           this.loadData();
         }
       });
@@ -118,143 +130,160 @@ getTotalSales(): number {
     this.destroy$.complete();
   }
 
- loadData() {
-  this.loading = true;
-  
-  const params: any = {
-    ...this.filters,
-    page: this.currentPage,
-    limit: this.itemsPerPage
-  };
-  
-  // Limpiar params vacíos
-  Object.keys(params).forEach(key => {
-    if (params[key] === '' || params[key] === null || params[key] === undefined) {
-      delete params[key];
+  // ✅ NUEVO: Obtener el branch_id a enviar al backend
+  private getBranchParam(): string | number {
+    if (this.isMultiBranch) {
+      return 'all';
     }
-  });
-  
-  this.cashService.getCashTransactions(params).subscribe({
-    next: (response: any) => {
-      if (response.success) {
-        this.transactions = response.data || [];
-        
-        // Paginación
-        if (response.pagination) {
-          this.totalItems = response.pagination.total || 0;
-          this.totalPages = response.pagination.pages || Math.ceil(this.totalItems / this.itemsPerPage);
-        }
-        
-        // Resumen del backend
-        if (response.summary) {
-          this.summary = {
-            total_in: parseFloat(response.summary.total_in) || 0,
-            total_out: parseFloat(response.summary.total_out) || 0,
-            balance: parseFloat(response.summary.balance) || 0,
-            completed_count: response.summary.completed_count || 0,
-            voided_count: response.summary.voided_count || 0,
-            // Ventas por método de pago
-            cash_total: parseFloat(response.summary.cash_total) || 0,
-            card_total: parseFloat(response.summary.card_total) || 0,
-            transfer_total: parseFloat(response.summary.transfer_total) || 0,
-            qr_total: parseFloat(response.summary.qr_total) || 0,
-            other_total: parseFloat(response.summary.other_total) || 0,
-            // Movimientos de caja
-            deposits_total: parseFloat(response.summary.deposits_total) || 0,
-            withdrawals_total: parseFloat(response.summary.withdrawals_total) || 0,
-            expenses_total: parseFloat(response.summary.expenses_total) || 0
-          };
-          
-          console.log('Summary del backend:', response.summary);
-        } else {
-          this.calculateSummaryFromData();
-        }
-        
-        // Guardar sesiones disponibles si vienen
-        if (response.available_sessions) {
-          this.availableSessions = response.available_sessions;
-        }
+    return this.cashService.getCurrentBranch() || '';
+  }
+
+  loadData() {
+    this.loading = true;
+    
+    const params: any = {
+      ...this.filters,
+      page: this.currentPage,
+      limit: this.itemsPerPage
+    };
+    
+    // Limpiar params vacíos
+    Object.keys(params).forEach(key => {
+      if (params[key] === '' || params[key] === null || params[key] === undefined) {
+        delete params[key];
       }
-      this.loading = false;
-    },
-    error: (error) => {
-      console.error('Error cargando transacciones:', error);
-      this.loading = false;
-    }
-  });
-}
+    });
+    
+    // ✅ MODIFICADO: Usar getBranchParam() con el segundo parámetro del service
+    const branchOverride = this.getBranchParam();
+    
+    this.cashService.getCashTransactions(params, branchOverride).subscribe({
+      next: (response: any) => {
+        if (response.success) {
+          this.transactions = response.data || [];
+          
+          // ✅ NUEVO: Detectar si es multi-branch desde la respuesta
+          this.isMultiBranch = response.is_multi_branch || false;
+          
+          // Paginación
+          if (response.pagination) {
+            this.totalItems = response.pagination.total || 0;
+            this.totalPages = response.pagination.pages || Math.ceil(this.totalItems / this.itemsPerPage);
+          }
+          
+          // Resumen del backend
+          if (response.summary) {
+            this.summary = {
+              total_in: parseFloat(response.summary.total_in) || 0,
+              total_out: parseFloat(response.summary.total_out) || 0,
+              balance: parseFloat(response.summary.balance) || 0,
+              completed_count: response.summary.completed_count || 0,
+              voided_count: response.summary.voided_count || 0,
+              cash_total: parseFloat(response.summary.cash_total) || 0,
+              card_total: parseFloat(response.summary.card_total) || 0,
+              transfer_total: parseFloat(response.summary.transfer_total) || 0,
+              qr_total: parseFloat(response.summary.qr_total) || 0,
+              other_total: parseFloat(response.summary.other_total) || 0,
+              deposits_total: parseFloat(response.summary.deposits_total) || 0,
+              withdrawals_total: parseFloat(response.summary.withdrawals_total) || 0,
+              expenses_total: parseFloat(response.summary.expenses_total) || 0
+            };
+            
+            console.log('Summary del backend:', response.summary);
+          } else {
+            this.calculateSummaryFromData();
+          }
+          
+          // ✅ NUEVO: Resumen por sucursal (solo en multi-branch)
+          this.branchSummaries = response.branch_summaries || [];
+          
+          // Guardar sesiones disponibles si vienen
+          if (response.available_sessions) {
+            this.availableSessions = response.available_sessions;
+          }
+        }
+        this.loading = false;
+      },
+      error: (error) => {
+        console.error('Error cargando transacciones:', error);
+        this.loading = false;
+      }
+    });
+  }
 
-/**
- * Calcular totales por método de pago desde las transacciones
- */
-calculatePaymentMethodTotals() {
-  // Solo transacciones completadas (no anuladas)
-  const validTransactions = this.transactions.filter(t => t.status !== 'voided');
-  
-  // Efectivo
-  this.summary.cash_total = validTransactions
-    .filter(t => t.payment_method === 'cash')
-    .reduce((sum, t) => {
-      const amount = parseFloat(t.amount) || 0;
-      return t.movement_type === 'in' ? sum + amount : sum - amount;
-    }, 0);
-  
-  // Tarjeta
-  this.summary.card_total = validTransactions
-    .filter(t => t.payment_method === 'card')
-    .reduce((sum, t) => {
-      const amount = parseFloat(t.amount) || 0;
-      return t.movement_type === 'in' ? sum + amount : sum - amount;
-    }, 0);
-  
-  // Transferencia
-  this.summary.transfer_total = validTransactions
-    .filter(t => t.payment_method === 'transfer')
-    .reduce((sum, t) => {
-      const amount = parseFloat(t.amount) || 0;
-      return t.movement_type === 'in' ? sum + amount : sum - amount;
-    }, 0);
-  
-  // QR / MercadoPago (sumarlo a transferencia o mostrar aparte)
-  const qrTotal = validTransactions
-    .filter(t => t.payment_method === 'qr' || t.payment_method === 'mercadopago')
-    .reduce((sum, t) => {
-      const amount = parseFloat(t.amount) || 0;
-      return t.movement_type === 'in' ? sum + amount : sum - amount;
-    }, 0);
-  
-  // Sumar QR a transferencia (o podés crear un campo aparte)
-  this.summary.transfer_total += qrTotal;
-}
+  /**
+   * Calcular totales por método de pago desde las transacciones
+   */
+  calculatePaymentMethodTotals() {
+    const validTransactions = this.transactions.filter(t => t.status !== 'voided');
+    
+    this.summary.cash_total = validTransactions
+      .filter(t => t.payment_method === 'cash')
+      .reduce((sum, t) => {
+        const amount = parseFloat(t.amount) || 0;
+        return t.movement_type === 'in' ? sum + amount : sum - amount;
+      }, 0);
+    
+    this.summary.card_total = validTransactions
+      .filter(t => t.payment_method === 'card')
+      .reduce((sum, t) => {
+        const amount = parseFloat(t.amount) || 0;
+        return t.movement_type === 'in' ? sum + amount : sum - amount;
+      }, 0);
+    
+    this.summary.transfer_total = validTransactions
+      .filter(t => t.payment_method === 'transfer')
+      .reduce((sum, t) => {
+        const amount = parseFloat(t.amount) || 0;
+        return t.movement_type === 'in' ? sum + amount : sum - amount;
+      }, 0);
+    
+    const qrTotal = validTransactions
+      .filter(t => t.payment_method === 'qr' || t.payment_method === 'mercadopago')
+      .reduce((sum, t) => {
+        const amount = parseFloat(t.amount) || 0;
+        return t.movement_type === 'in' ? sum + amount : sum - amount;
+      }, 0);
+    
+    this.summary.transfer_total += qrTotal;
+  }
 
-/**
- * Calcular todo el resumen desde los datos
- */
-calculateSummaryFromData() {
-  const validTransactions = this.transactions.filter(t => t.status !== 'voided');
-  
-  this.summary.total_in = validTransactions
-    .filter(t => t.movement_type === 'in')
-    .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-  
-  this.summary.total_out = validTransactions
-    .filter(t => t.movement_type === 'out')
-    .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-  
-  this.summary.balance = this.summary.total_in - this.summary.total_out;
-  this.summary.completed_count = validTransactions.length;
-  this.summary.voided_count = this.transactions.filter(t => t.status === 'voided').length;
-  
-  // Calcular por método de pago
-  this.calculatePaymentMethodTotals();
-}
+  /**
+   * Calcular todo el resumen desde los datos
+   */
+  calculateSummaryFromData() {
+    const validTransactions = this.transactions.filter(t => t.status !== 'voided');
+    
+    this.summary.total_in = validTransactions
+      .filter(t => t.movement_type === 'in')
+      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    
+    this.summary.total_out = validTransactions
+      .filter(t => t.movement_type === 'out')
+      .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    
+    this.summary.balance = this.summary.total_in - this.summary.total_out;
+    this.summary.completed_count = validTransactions.length;
+    this.summary.voided_count = this.transactions.filter(t => t.status === 'voided').length;
+    
+    this.calculatePaymentMethodTotals();
+  }
 
-getBankTotal(): number {
-  return this.summary.card_total + 
-         this.summary.transfer_total + 
-         this.summary.qr_total + 
-         this.summary.other_total;
-}
+  getBankTotal(): number {
+    return this.summary.card_total + 
+           this.summary.transfer_total + 
+           this.summary.qr_total + 
+           this.summary.other_total;
+  }
+
+  // ✅ NUEVO: Helper para total de ventas de una sucursal
+  getBranchSalesTotal(branch: any): number {
+    return (branch.cash_total || 0) + 
+           (branch.card_total || 0) + 
+           (branch.transfer_total || 0) + 
+           (branch.qr_total || 0) + 
+           (branch.other_total || 0);
+  }
  
   loadTransactionTypes() {
     this.cashService.getCashTransactionTypes().subscribe({
@@ -331,7 +360,6 @@ getBankTotal(): number {
         this.filters.date_to = this.formatDate(today);
         break;
       case 'custom':
-        // No cambiar fechas, el usuario las seleccionará
         return;
     }
     
@@ -370,7 +398,8 @@ getBankTotal(): number {
       payment_method: '',
       movement_type: '',
       status: '',
-      search: ''
+      search: '',
+      session_status: ''
     };
     this.currentPage = 1;
     this.setDateFilter('today');
@@ -590,7 +619,7 @@ getBankTotal(): number {
 
   generatePrintContent(transaction: any): string {
     const branch = this.authService.getCurrentBranch();
-    const branchName = branch?.name || 'La Panchoneta';
+    const branchName = transaction.branch_name || branch?.name || 'La Panchoneta';
     const branchAddress = branch?.address || '';
     
     return `
@@ -754,10 +783,9 @@ getBankTotal(): number {
   exportData() {
     this.exporting = true;
     
-    // Cargar todos los datos sin paginación para exportar
     const params: any = {
       ...this.filters,
-      limit: 10000 // Obtener todos
+      limit: 10000
     };
     
     Object.keys(params).forEach(key => {
@@ -766,7 +794,8 @@ getBankTotal(): number {
       }
     });
     
-    this.cashService.getCashTransactions(params).subscribe({
+    // ✅ MODIFICADO: Usar getBranchParam()
+    this.cashService.getCashTransactions(params, this.getBranchParam()).subscribe({
       next: (response: any) => {
         const data = response.data || this.transactions;
         this.downloadCSV(data);
@@ -774,7 +803,6 @@ getBankTotal(): number {
       },
       error: (error) => {
         console.error('Error exportando:', error);
-        // Exportar con datos actuales
         this.downloadCSV(this.transactions);
         this.exporting = false;
       }
@@ -787,10 +815,12 @@ getBankTotal(): number {
       return;
     }
     
+    // ✅ MODIFICADO: Agregar columna Sucursal
     const headers = [
       'ID',
       'Fecha',
       'Hora',
+      'Sucursal',
       'Tipo',
       'Descripción',
       'Método de Pago',
@@ -805,6 +835,7 @@ getBankTotal(): number {
       t.id,
       new Date(t.created_at).toLocaleDateString('es-AR'),
       new Date(t.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }),
+      `"${t.branch_name || '-'}"`,
       this.getTypeName(t.transaction_type),
       `"${(t.description || '').replace(/"/g, '""')}"`,
       this.getPaymentMethodName(t.payment_method),
@@ -820,15 +851,13 @@ getBankTotal(): number {
       ...rows.map(row => row.join(','))
     ].join('\n');
     
-    // Agregar BOM para Excel
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     
-    // Crear nombre de archivo
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `caja_${this.getDateFilterLabel().replace(/\s/g, '_')}_${dateStr}.csv`;
+    const branchLabel = this.isMultiBranch ? 'todas' : this.getDateFilterLabel().replace(/\s/g, '_');
+    const filename = `caja_${branchLabel}_${dateStr}.csv`;
     
-    // Descargar
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = filename;
@@ -838,7 +867,6 @@ getBankTotal(): number {
   }
 
   exportExcel() {
-    // Alternativa: exportar como Excel usando datos en formato tabla HTML
     this.exporting = true;
     
     const params: any = {
@@ -852,7 +880,8 @@ getBankTotal(): number {
       }
     });
     
-    this.cashService.getCashTransactions(params).subscribe({
+    // ✅ MODIFICADO: Usar getBranchParam()
+    this.cashService.getCashTransactions(params, this.getBranchParam()).subscribe({
       next: (response: any) => {
         const data = response.data || this.transactions;
         this.downloadExcel(data);
@@ -872,7 +901,7 @@ getBankTotal(): number {
     }
 
     const branch = this.authService.getCurrentBranch();
-    const branchName = branch?.name || 'Sucursal';
+    const branchName = this.isMultiBranch ? 'Todas las Sucursales' : (branch?.name || 'Sucursal');
     
     let html = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" 
@@ -900,6 +929,7 @@ getBankTotal(): number {
               <th>ID</th>
               <th>Fecha</th>
               <th>Hora</th>
+              <th>Sucursal</th>
               <th>Tipo</th>
               <th>Descripción</th>
               <th>Método</th>
@@ -920,6 +950,7 @@ getBankTotal(): number {
           <td>${t.id}</td>
           <td>${new Date(t.created_at).toLocaleDateString('es-AR')}</td>
           <td>${new Date(t.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${t.branch_name || '-'}</td>
           <td>${this.getTypeName(t.transaction_type)}</td>
           <td>${t.description || '-'}</td>
           <td>${this.getPaymentMethodName(t.payment_method)}</td>
@@ -934,17 +965,17 @@ getBankTotal(): number {
           </tbody>
           <tfoot>
             <tr>
-              <td colspan="6" style="text-align: right; font-weight: bold;">Total Entradas:</td>
+              <td colspan="7" style="text-align: right; font-weight: bold;">Total Entradas:</td>
               <td class="income" style="font-weight: bold;">+$${this.summary.total_in.toFixed(2)}</td>
               <td colspan="2"></td>
             </tr>
             <tr>
-              <td colspan="6" style="text-align: right; font-weight: bold;">Total Salidas:</td>
+              <td colspan="7" style="text-align: right; font-weight: bold;">Total Salidas:</td>
               <td class="expense" style="font-weight: bold;">-$${this.summary.total_out.toFixed(2)}</td>
               <td colspan="2"></td>
             </tr>
             <tr>
-              <td colspan="6" style="text-align: right; font-weight: bold;">Balance:</td>
+              <td colspan="7" style="text-align: right; font-weight: bold;">Balance:</td>
               <td style="font-weight: bold;">$${this.summary.balance.toFixed(2)}</td>
               <td colspan="2"></td>
             </tr>
@@ -956,7 +987,7 @@ getBankTotal(): number {
     
     const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `caja_${dateStr}.xls`;
+    const filename = `caja_${branchName.replace(/\s/g, '_')}_${dateStr}.xls`;
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
